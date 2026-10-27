@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Environment
+.env
+
+# Generated vector stores (rebuilt from documents)
+**/vector_store/
+**/chroma_db/
+
+# Large / local-only artifacts
+demo_video/*.mp4
+demo_video/*.mov
+final-project.zip
+
+# OS / editor
+.DS_Store
+~$*
+.idea/
+.vscode/
+
+# Course-provided assignment brief (kept local, not redistributed)
+docs/assignment*.pdf
