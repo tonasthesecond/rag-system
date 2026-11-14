@@ -1,0 +1,65 @@
+# Full local RAG stack: Ollama (models) + Streamlit app.
+#
+#   docker compose -f docker/docker-compose.yml up --build      # Docker
+#   podman compose -f docker/docker-compose.yml up --build      # Podman
+#
+# Then open http://localhost:8501. The first start downloads the models
+# (~1.3 GB) into the `ollama-models` volume and embeds the handbook.
+
+name: rag-system
+
+services:
+  ollama:
+    image: docker.io/ollama/ollama:0.12.11
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    # Uncomment to call the containerised Ollama from the host too
+    # (conflicts with a host Ollama already using 11434).
+    # ports:
+    #   - "11434:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # One-shot job: make sure the embedding + answer models are present.
+  ollama-init:
+    image: docker.io/ollama/ollama:0.12.11
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        for m in $${MODELS:-nomic-embed-text qwen2.5:1.5b}; do
+          echo "pulling $$m"; ollama pull "$$m" || exit 1
+        done
+    restart: "no"
+
+  app:
+    build:
+      context: ../source_code
+      dockerfile: ../docker/Dockerfile
+    image: localhost/rag-system:latest
+    depends_on:
+      ollama-init:
+        condition: service_completed_successfully
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:1.5b}
+    ports:
+      - "8501:8501"
+    volumes:
+      # Documents live on the host so new PDFs can be added without rebuilding.
+      - ../source_code/data:/app/data:Z
+      # The Chroma index persists across container restarts.
+      - vector-store:/app/vector_store
+    restart: unless-stopped
+
+volumes:
+  ollama-models:
+  vector-store:
