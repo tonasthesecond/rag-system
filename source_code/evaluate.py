@@ -46,6 +46,13 @@ def retrieval_hit(sources: list[dict], expected_pages: list[int]) -> bool | None
     return any(s.get("page") in expected_pages for s in sources)
 
 
+def evidence_hit(sources: list[dict], evidence: str | None) -> bool | None:
+    """Chunk-level retrieval: did a retrieved chunk contain the answer's evidence phrase?"""
+    if not evidence:
+        return None
+    return any(alt in s["content"] for s in sources for alt in evidence.split("|"))
+
+
 def mean(values: list[float]) -> float | None:
     values = [v for v in values if v is not None]
     return round(sum(values) / len(values), 2) if values else None
@@ -91,15 +98,18 @@ def write_summary(rows: list[dict], cfg: Settings, path: Path) -> None:
         f"top-k {cfg.top_k}, temperature {cfg.temperature}"),
         f"- Questions: {len(rows) // max(len(models), 1)}",
         "",
-        ("| Model | Retrieval hit rate | Avg fact coverage | Median latency (s) | Max latency (s) "
-        "| Fallbacks |"),
-        "|---|---|---|---|---|---|",
+        ("| Model | Page hit | Chunk hit | Avg fact coverage | Median latency (s) "
+        "| Max latency (s) | Fallbacks |"),
+        "|---|---|---|---|---|---|---|",
     ]
     for m in models:
         mr = [r for r in rows if r["model"] == m]
         hits = [r["retrieval_hit"] for r in mr if r["retrieval_hit"] is not None]
+        chunk_hits = [r.get("evidence_hit") for r in mr if r.get("evidence_hit") is not None]
+        chunk_col = f"{sum(chunk_hits)}/{len(chunk_hits)}" if chunk_hits else "—"
         lines.append(
-            f"| `{m}` | {sum(hits)}/{len(hits)} | {mean([r['fact_coverage'] for r in mr])} | "
+            f"| `{m}` | {sum(hits)}/{len(hits)} | {chunk_col} | "
+            f"{mean([r['fact_coverage'] for r in mr])} | "
             f"{statistics.median(r['latency_s'] for r in mr)} | "
             f"{max(r['latency_s'] for r in mr)} | {sum(r['used_fallback'] for r in mr)} |"
         )
@@ -130,7 +140,7 @@ def write_summary(rows: list[dict], cfg: Settings, path: Path) -> None:
         for r in qr:
             lines += [
                 (f"**{r['model']}** (retrieved pages {r['retrieved_pages']}, "
-                f"hit={r['retrieval_hit']}, coverage={r['fact_coverage']}, {r['latency_s']}s)"),
+                f"hit={r['retrieval_hit']}, chunk_hit={r.get('evidence_hit')}, coverage={r['fact_coverage']}, {r['latency_s']}s)"),
                 "",
                 *([f"*Label: **{r['label']}** — {r['label_note']}*", ""] if r.get("label") else []),
                 truncate(r["answer"].strip()),
@@ -210,6 +220,7 @@ def main() -> None:
                 "expected_pages": q.get("pages", []),
                 "retrieved_pages": [s.get("page") for s in result["sources"]],
                 "retrieval_hit": retrieval_hit(result["sources"], q.get("pages", [])),
+                "evidence_hit": evidence_hit(result["sources"], q.get("evidence")),
                 "fact_coverage": fact_coverage(result["answer"], q.get("key_facts", [])),
                 "avg_score": result["avg_score"],
                 "used_fallback": result["used_fallback"],

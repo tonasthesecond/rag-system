@@ -16,7 +16,7 @@ req-major-credits:
 
 req-major-courses:
   qwen2.5:0.5b: [incorrect, "Confuses the course list with the 'two courses to declare' rule; lists only CS101 and MATH202."]
-  qwen2.5:1.5b: [incorrect, "Lists the MINOR requirements (six courses, CS103/CS104 options) as if they were the major's."]
+  qwen2.5:1.5b: [incorrect, "Lists the MINOR requirements (six courses, CS103/CS104 options) as if they were the major's. Retrieval failure: the major-list chunk was not retrieved (not even in the top 8); the minor chunk ranked first."]
   qwen2.5:3b: [incorrect, "Also gives the minor structure and invents 'CS 202' / 'CS 301' as examples; omits CS203 and CS302."]
 
 req-declare-major:
@@ -41,8 +41,8 @@ req-exploratory:
 
 req-core:
   qwen2.5:0.5b: [incorrect, "Presents the Core LEARNING OUTCOMES as if they were course names."]
-  qwen2.5:1.5b: [incomplete, "Says there are four Core courses but names none, although the list was in a retrieved chunk."]
-  qwen2.5:3b: [incomplete, "Same as 1.5b: generic description, no course names."]
+  qwen2.5:1.5b: [incomplete, "Says there are four Core courses but names none. Retrieval failure: the chunk with the course list (end of p.6) was not retrieved; a different p.6 chunk was."]
+  qwen2.5:3b: [incomplete, "Same as 1.5b: generic description, no course names (list chunk not retrieved)."]
 
 req-degree-name:
   qwen2.5:0.5b: [ambiguous, "Says 'B.S. in Applied Mathematics' - faithful to a copy-paste error on p.6 of the handbook."]
