@@ -21,7 +21,7 @@ Question ───────────────────────�
 | Task | Description | Status |
 |------|-------------|--------|
 | 1 | PDF file support | ✅ done |
-| 2 | CS handbook chatbot + evaluation | 🔄 evaluation running |
+| 2 | CS handbook chatbot + evaluation | ✅ done (results in `source_code/eval/results/`) |
 | 3 | Docker deployment | ✅ done |
 | 4 | Web UI (Streamlit) | ✅ done |
 | 5 | Report | ⏳ |
@@ -142,4 +142,24 @@ docker compose -f docker/docker-compose.yml down            # stop (volumes kept
 - Text inside images or scanned pages is not extracted (no OCR); page 10 of the CS
   handbook is image-only and is skipped during indexing.
 - Small models (e.g. `qwen2.5:0.5b`) can contradict the retrieved context or mix
-  up related sections (e.g. major vs. minor requirements).
+  up related sections (e.g. major vs. minor requirements), and invent answers to
+  questions the handbook doesn't cover.
+- Conversation history is shown in the UI but not sent to the model, so follow-up
+  questions that use pronouns ("what does *it* cover?") are answered without context.
+- Answers are only as good as the source: the handbook says completing the program
+  awards a "B.S. in Applied Mathematics" (a typo), and every model repeats it.
+- Everything runs on CPU in this setup: median answer time is ~25 s (0.5b),
+  ~45 s (1.5b) and ~110 s (3b).
+
+## Evaluation results (baseline)
+
+25 handbook questions, temperature 0, top-k 5, `nomic-embed-text` embeddings:
+
+| Model | Expected page retrieved | Key-fact coverage | Median latency | Hallucinated on out-of-scope Qs |
+|---|---|---|---|---|
+| `qwen2.5:0.5b` | 23/23 | 0.68 | 24 s | 2/2 |
+| `qwen2.5:1.5b` | 23/23 | 0.80 | 45 s | 0/2 |
+| `qwen2.5:3b` | 23/23 | 0.87 | 110 s | 0/2 |
+
+`qwen2.5:1.5b` is the default: it gives most of the 3b's accuracy at ~40% of the
+latency. Full answers: `source_code/eval/results/20261114-1616-baseline/summary.md`.
