@@ -135,14 +135,15 @@ temperature 0 (so differences come from the models, not sampling) and records:
 
 ## 4.2 Results
 
-| Model | Correct | Incomplete | Ambiguous | Incorrect | Chunk hit | Fact coverage | Median latency |
+| Model | Corr. | Inc. | Amb. | Wrong | Chunk hit | Fact cov. | Median latency |
 |---|---|---|---|---|---|---|---|
 | Qwen2.5 0.5B | 9 | 1 | 3 | 12 | 21/23 | 0.68 | 24 s |
 | Qwen2.5 1.5B | 18 | 2 | 3 | 2 | 21/23 | 0.80 | 45 s |
 | Qwen2.5 3B | 19 | 1 | 3 | 2 | 21/23 | 0.87 | 110 s |
 
 *Baseline configuration: course prompt, chunks of 1,000 characters with 200
-overlap, top-5 retrieval.*
+overlap, top-5 retrieval. Corr./Inc./Amb./Wrong = correct, incomplete, ambiguous,
+incorrect.*
 
 Going from 0.5B to 1.5B doubles the number of correct answers; going from 1.5B to
 3B adds one more at 2.5 times the latency. On the two out-of-scope questions the
@@ -231,15 +232,17 @@ containing each answer was retrieved: 21/23 at 1,000/200 characters, 23/23 at
 800/150, and 19–20/23 at 600 characters or less. Smaller chunks were worse
 because they separate course descriptions from the course code they describe.
 
-The end-to-end results (temperature 0, same 25 questions, hand-labelled):
+The end-to-end results (temperature 0, same 25 questions, hand-labelled;
+*Corr./Inc./Amb./Wrong* = correct, incomplete, ambiguous, incorrect; *OOS hall.* =
+out-of-scope questions answered with invented facts):
 
-| Run | Model | Prompt | Chunks | Correct | Incompl. | Ambig. | Incorrect | Out-of-scope invented |
+| Run | Model | Prompt | Chunks | Corr. | Inc. | Amb. | Wrong | OOS hall. |
 |---|---|---|---|---|---|---|---|---|
-| Baseline | 1.5B | course | 1000/200 | 18 | 2 | 3 | 2 | 0 / 2 |
-| A | 1.5B | strict | 1000/200 | 18 | 3 | 1 | 3 | 0 / 2 |
-| B | 1.5B | strict | 800/150 | 17 | 2 | 3 | 3 | 0 / 2 |
-| Baseline | 0.5B | course | 1000/200 | 9 | 1 | 3 | 12 | 2 / 2 |
-| C | 0.5B | strict | 800/150 | 10 | 0 | 8 | 7 | 0 / 2 |
+| Base | 1.5B | course | 1000/200 | 18 | 2 | 3 | 2 | 0/2 |
+| A | 1.5B | strict | 1000/200 | 18 | 3 | 1 | 3 | 0/2 |
+| B | 1.5B | strict | 800/150 | 17 | 2 | 3 | 3 | 0/2 |
+| Base | 0.5B | course | 1000/200 | 9 | 1 | 3 | 12 | 2/2 |
+| C | 0.5B | strict | 800/150 | 10 | 0 | 8 | 7 | 0/2 |
 
 For the 1.5B model the strict prompt did not change accuracy, but it changed the
 *kind* of errors. Answers no longer contained invented extras — the
