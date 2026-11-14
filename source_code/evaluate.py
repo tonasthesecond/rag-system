@@ -88,15 +88,27 @@ def write_csv(rows: list[dict], path: Path) -> None:
         writer.writerows(rows)
 
 
+def run_config(cfg: Settings) -> dict:
+    return {
+        "embed_model": cfg.embed_model, "chunk_size": cfg.chunk_size,
+        "chunk_overlap": cfg.chunk_overlap, "top_k": cfg.top_k,
+        "temperature": cfg.temperature, "prompt_style": cfg.prompt_style,
+        "score_threshold": cfg.score_threshold, "max_tokens": cfg.max_tokens,
+    }
+
+
 def write_summary(rows: list[dict], cfg: Settings, path: Path) -> None:
     models = list(dict.fromkeys(r["model"] for r in rows))
+    # Describe the settings the run actually used, not the current defaults.
+    config_file = path.parent / "config.json"
+    c = json.loads(config_file.read_text()) if config_file.exists() else run_config(cfg)
     lines = [
         "# Handbook chatbot evaluation",
         "",
         f"- Run: `{path.parent.name}`",
-        (f"- Embeddings: `{cfg.embed_model}`, chunk {cfg.chunk_size}/{cfg.chunk_overlap}, "
-        f"top-k {cfg.top_k}, temperature {cfg.temperature}, prompt `{cfg.prompt_style}`, "
-        f"threshold {cfg.score_threshold}"),
+        (f"- Embeddings: `{c['embed_model']}`, chunk {c['chunk_size']}/{c['chunk_overlap']}, "
+        f"top-k {c['top_k']}, temperature {c['temperature']}, prompt `{c['prompt_style']}`, "
+        f"threshold {c['score_threshold']}, max tokens {c['max_tokens']}"),
         f"- Questions: {len(rows) // max(len(models), 1)}",
         "",
         ("| Model | Page hit | Chunk hit | Avg fact coverage | Median latency (s) "
@@ -183,8 +195,8 @@ def main() -> None:
     parser.add_argument("--temperature", type=float, default=0.0,
                         help="0 = deterministic, so runs are comparable (default 0)")
     parser.add_argument("--top-k", type=int)
-    parser.add_argument("--prompt", choices=["baseline", "strict"], default="baseline",
-                        help="Prompt style (default baseline)")
+    parser.add_argument("--prompt", choices=["baseline", "strict"],
+                        help="Prompt style (default: PROMPT_STYLE setting, i.e. strict)")
     parser.add_argument("--chunk-size", type=int)
     parser.add_argument("--chunk-overlap", type=int)
     parser.add_argument("--retrieval-only", action="store_true",
@@ -200,7 +212,8 @@ def main() -> None:
     cfg = Settings()
     cfg.data_dir = args.data_dir.resolve()
     cfg.temperature = args.temperature
-    cfg.prompt_style = args.prompt
+    if args.prompt:
+        cfg.prompt_style = args.prompt
     if args.top_k:
         cfg.top_k = args.top_k
     if args.chunk_size:
@@ -238,6 +251,7 @@ def main() -> None:
         if partial.exists() else []
     )
     done = {(r["model"], r["id"]) for r in rows}
+    (out_dir / "config.json").write_text(json.dumps(run_config(cfg), indent=2))
     total = len(args.models) * len(questions)
     print(f"Writing to {out_dir.relative_to(PROJECT_ROOT)}/ ({len(done)}/{total} already done)",
           flush=True)
