@@ -32,10 +32,11 @@ services:
         condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
+      MODELS: ${MODELS:-nomic-embed-text qwen2.5:1.5b}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        for m in $${MODELS:-nomic-embed-text qwen2.5:1.5b}; do
+        for m in $$MODELS; do
           echo "pulling $$m"; ollama pull "$$m" || exit 1
         done
     restart: "no"
