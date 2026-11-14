@@ -19,16 +19,16 @@ def get_embeddings(cfg: Settings) -> OllamaEmbeddings:
 def load_or_build(cfg: Settings, rebuild: bool = False) -> Chroma:
     """Open the persisted store, or (re)index `cfg.data_dir` if missing or `rebuild`."""
     embeddings = get_embeddings(cfg)
-    if rebuild and cfg.vector_store.exists():
-        print(f"Removing existing vector store at {cfg.vector_store}")
-        shutil.rmtree(cfg.vector_store)
+    if rebuild and cfg.index_dir.exists():
+        print(f"Removing existing vector store at {cfg.index_dir}")
+        shutil.rmtree(cfg.index_dir)
 
-    if cfg.vector_store.exists():
+    if cfg.index_dir.exists():
         print("Loading existing vector store...")
         return Chroma(
             collection_name=cfg.collection,
             embedding_function=embeddings,
-            persist_directory=str(cfg.vector_store),
+            persist_directory=str(cfg.index_dir),
         )
 
     print(f"No vector store found. Indexing documents in {cfg.data_dir} ...")
@@ -45,5 +45,5 @@ def load_or_build(cfg: Settings, rebuild: bool = False) -> Chroma:
         documents=chunks,
         embedding=embeddings,
         collection_name=cfg.collection,
-        persist_directory=str(cfg.vector_store),
+        persist_directory=str(cfg.index_dir),
     )

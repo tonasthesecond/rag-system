@@ -36,3 +36,8 @@ class Settings:
     ollama_url: str = field(default_factory=lambda: _env("OLLAMA_URL", "http://127.0.0.1:11434"))
     top_k: int = field(default_factory=lambda: int(_env("TOP_K", "5")))
     score_threshold: float = field(default_factory=lambda: float(_env("SCORE_THRESHOLD", "0.3")))
+
+    @property
+    def index_dir(self) -> Path:
+        """One persisted index per document folder, so corpora never get mixed."""
+        return self.vector_store / self.data_dir.name
