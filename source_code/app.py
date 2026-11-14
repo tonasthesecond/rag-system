@@ -104,7 +104,9 @@ st.session_state.rebuild = 0
 # ------------------------------------------------------------------ chat
 def render_sources(msg: dict) -> None:
     if msg.get("used_fallback"):
-        st.warning("No sufficiently relevant passages found — answered from model knowledge.",
+        st.warning("No sufficiently relevant passages found — "
+                   + ("the model was not asked." if msg.get("prompt_style") == "strict"
+                      else "answered from model knowledge."),
                    icon="⚠️")
     if not msg.get("sources"):
         return
@@ -152,6 +154,7 @@ if question:
             answer = f"⚠️ Could not reach the model `{cfg.llm_model}` at {cfg.ollama_url}: {exc}"
             st.error(answer)
         msg = {"role": "assistant", "content": str(answer).strip(), "model": cfg.llm_model,
+               "prompt_style": cfg.prompt_style,
                **{k: result[k] for k in ("sources", "top_score", "used_fallback")}}
         render_sources(msg)
     st.session_state.messages.append(msg)

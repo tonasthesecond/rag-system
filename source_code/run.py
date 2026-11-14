@@ -50,7 +50,10 @@ def main() -> None:
     result = ask(args.question, db, llm, cfg)
     print(f"\nA: {result['answer']}\n")
     if result["used_fallback"]:
-        print("(answered from model knowledge — no relevant documents found)")
+        if cfg.prompt_style == "strict":
+            print("(no relevant documents found — the model was not called)")
+        else:
+            print("(answered from model knowledge — no relevant documents found)")
     else:
         print(f"Sources (best score {result['top_score']}):")
         for s in result["sources"][:3]:

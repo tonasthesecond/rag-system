@@ -43,9 +43,9 @@ class Settings:
     # this. Calibrated on the CS handbook: every handbook question scores >= 0.656,
     # clearly off-topic questions <= 0.55 (see docs/DECISIONS.md D-17).
     score_threshold: float = field(default_factory=lambda: float(_env("SCORE_THRESHOLD", "0.6")))
-    # "baseline" = course prompt (may use general knowledge);
-    # "strict"   = answer only from the documents, otherwise say so (D-18).
-    prompt_style: str = field(default_factory=lambda: _env("PROMPT_STYLE", "baseline"))
+    # "strict" (default) = answer only from the documents, otherwise say so (D-18);
+    # "baseline" = the course prompt, which allows general-knowledge answers.
+    prompt_style: str = field(default_factory=lambda: _env("PROMPT_STYLE", "strict"))
 
     @property
     def index_dir(self) -> Path:
