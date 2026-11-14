@@ -102,6 +102,8 @@ def main() -> None:
     parser.add_argument("--top-k", type=int)
     parser.add_argument("--only", nargs="*", help="Run only these question ids")
     parser.add_argument("--tag", default="", help="Suffix for the results folder name")
+    parser.add_argument("--resume", type=Path,
+                        help="Existing results folder to continue (skips finished answers)")
     args = parser.parse_args()
 
     cfg = Settings()
@@ -114,15 +116,32 @@ def main() -> None:
     questions = [q for q in spec["questions"] if not args.only or q["id"] in args.only]
 
     db = load_or_build(cfg)
-    out_dir = RESULTS_DIR / (datetime.now().strftime("%Y%m%d-%H%M") + (f"-{args.tag}" if args.tag else ""))
+    if args.resume:
+        out_dir = args.resume.resolve()
+    else:
+        stamp = datetime.now().strftime("%Y%m%d-%H%M")
+        out_dir = RESULTS_DIR / (stamp + (f"-{args.tag}" if args.tag else ""))
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    rows: list[dict] = []
+    # Answers are appended to a JSONL file as they arrive, so an interrupted run
+    # loses at most one answer and can be continued with --resume.
+    partial = out_dir / "results.jsonl"
+    rows: list[dict] = (
+        [json.loads(line) for line in partial.read_text().splitlines() if line.strip()]
+        if partial.exists() else []
+    )
+    done = {(r["model"], r["id"]) for r in rows}
+    total = len(args.models) * len(questions)
+    print(f"Writing to {out_dir.relative_to(PROJECT_ROOT)}/ ({len(done)}/{total} already done)",
+          flush=True)
+
     for model in args.models:
         cfg.llm_model = model
         llm = get_llm(cfg)
-        print(f"\n=== {model} ===")
+        print(f"\n=== {model} ===", flush=True)
         for q in questions:
+            if (model, q["id"]) in done:
+                continue
             start = time.perf_counter()
             result = ask(q["question"], db, llm, cfg)
             latency = round(time.perf_counter() - start, 1)
@@ -143,8 +162,10 @@ def main() -> None:
                 "label": "",  # filled in by hand: correct / incomplete / incorrect / ambiguous
             }
             rows.append(row)
-            print(f"  {q['id']:<26} hit={row['retrieval_hit']!s:<5} "
-                  f"cov={row['fact_coverage']!s:<5} {latency:>5}s")
+            with open(partial, "a", encoding="utf-8") as f:
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+            print(f"  [{len(rows)}/{total}] {q['id']:<26} hit={row['retrieval_hit']!s:<5} "
+                  f"cov={row['fact_coverage']!s:<5} {latency:>5}s", flush=True)
 
     (out_dir / "results.json").write_text(json.dumps(rows, indent=2, ensure_ascii=False))
     with open(out_dir / "results.csv", "w", newline="", encoding="utf-8") as f:
