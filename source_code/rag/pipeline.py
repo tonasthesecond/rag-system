@@ -37,7 +37,12 @@ def list_models(cfg: Settings) -> list[str]:
 
 
 def get_llm(cfg: Settings) -> OllamaLLM:
-    return OllamaLLM(model=cfg.llm_model, base_url=cfg.ollama_url, temperature=cfg.temperature)
+    return OllamaLLM(
+        model=cfg.llm_model,
+        base_url=cfg.ollama_url,
+        temperature=cfg.temperature,
+        num_predict=cfg.max_tokens,
+    )
 
 
 def retrieve(question: str, db: Chroma, cfg: Settings) -> list[dict[str, Any]]:

@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import statistics
 import time
 from datetime import datetime
 from pathlib import Path
@@ -50,6 +51,12 @@ def mean(values: list[float]) -> float | None:
     return round(sum(values) / len(values), 2) if values else None
 
 
+def truncate(answer: str, limit: int = 2500) -> str:
+    if len(answer) <= limit:
+        return answer
+    return answer[:limit] + f"\n\n*[... truncated: answer was {len(answer):,} characters]*"
+
+
 def write_summary(rows: list[dict], cfg: Settings, path: Path) -> None:
     models = list(dict.fromkeys(r["model"] for r in rows))
     lines = [
@@ -60,15 +67,17 @@ def write_summary(rows: list[dict], cfg: Settings, path: Path) -> None:
         f"top-k {cfg.top_k}, temperature {cfg.temperature}"),
         f"- Questions: {len(rows) // max(len(models), 1)}",
         "",
-        "| Model | Retrieval hit rate | Avg fact coverage | Avg latency (s) | Fallbacks |",
-        "|---|---|---|---|---|",
+        ("| Model | Retrieval hit rate | Avg fact coverage | Median latency (s) | Max latency (s) "
+        "| Fallbacks |"),
+        "|---|---|---|---|---|---|",
     ]
     for m in models:
         mr = [r for r in rows if r["model"] == m]
         hits = [r["retrieval_hit"] for r in mr if r["retrieval_hit"] is not None]
         lines.append(
             f"| `{m}` | {sum(hits)}/{len(hits)} | {mean([r['fact_coverage'] for r in mr])} | "
-            f"{mean([r['latency_s'] for r in mr])} | {sum(r['used_fallback'] for r in mr)} |"
+            f"{statistics.median(r['latency_s'] for r in mr)} | "
+            f"{max(r['latency_s'] for r in mr)} | {sum(r['used_fallback'] for r in mr)} |"
         )
     lines += ["", "## Answers", ""]
     for qid in dict.fromkeys(r["id"] for r in rows):
@@ -87,7 +96,7 @@ def write_summary(rows: list[dict], cfg: Settings, path: Path) -> None:
                 (f"**{r['model']}** (retrieved pages {r['retrieved_pages']}, "
                 f"hit={r['retrieval_hit']}, coverage={r['fact_coverage']}, {r['latency_s']}s)"),
                 "",
-                r["answer"].strip(),
+                truncate(r["answer"].strip()),
                 "",
             ]
     path.write_text("\n".join(lines), encoding="utf-8")
@@ -102,6 +111,8 @@ def main() -> None:
     parser.add_argument("--top-k", type=int)
     parser.add_argument("--only", nargs="*", help="Run only these question ids")
     parser.add_argument("--tag", default="", help="Suffix for the results folder name")
+    parser.add_argument("--summarize", type=Path,
+                        help="Only regenerate summary.md for an existing results folder")
     parser.add_argument("--resume", type=Path,
                         help="Existing results folder to continue (skips finished answers)")
     args = parser.parse_args()
@@ -111,6 +122,12 @@ def main() -> None:
     cfg.temperature = args.temperature
     if args.top_k:
         cfg.top_k = args.top_k
+
+    if args.summarize:
+        rows = json.loads((args.summarize / "results.json").read_text(encoding="utf-8"))
+        write_summary(rows, cfg, args.summarize / "summary.md")
+        print(f"Rewrote {args.summarize / 'summary.md'}")
+        return
 
     spec = yaml.safe_load(QUESTIONS_FILE.read_text(encoding="utf-8"))
     questions = [q for q in spec["questions"] if not args.only or q["id"] in args.only]

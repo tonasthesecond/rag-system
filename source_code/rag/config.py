@@ -33,6 +33,9 @@ class Settings:
     embed_model: str = field(default_factory=lambda: _env("EMBED_MODEL", "nomic-embed-text"))
     llm_model: str = field(default_factory=lambda: _env("LLM_MODEL", "qwen2.5:0.5b"))
     temperature: float = field(default_factory=lambda: float(_env("TEMPERATURE", "0.7")))
+    # Hard cap on generated tokens. Without it a small model can fall into a
+    # repetition loop and generate for tens of minutes (observed with 0.5b).
+    max_tokens: int = field(default_factory=lambda: int(_env("MAX_TOKENS", "512")))
     ollama_url: str = field(default_factory=lambda: _env("OLLAMA_URL", "http://127.0.0.1:11434"))
     top_k: int = field(default_factory=lambda: int(_env("TOP_K", "5")))
     score_threshold: float = field(default_factory=lambda: float(_env("SCORE_THRESHOLD", "0.3")))
