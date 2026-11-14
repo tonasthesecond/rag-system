@@ -57,12 +57,36 @@ def truncate(answer: str, limit: int = 2500) -> str:
     return answer[:limit] + f"\n\n*[... truncated: answer was {len(answer):,} characters]*"
 
 
+LABELS = ("correct", "incomplete", "ambiguous", "incorrect")
+
+
+def apply_labels(rows: list[dict], labels_file: Path) -> bool:
+    """Merge hand labels from labels.yaml ({qid: {model: [label, note]}}) into rows."""
+    if not labels_file.exists():
+        return False
+    labels = yaml.safe_load(labels_file.read_text(encoding="utf-8")) or {}
+    for r in rows:
+        label, note = labels.get(r["id"], {}).get(r["model"], ["", ""])
+        if label and label not in LABELS:
+            raise SystemExit(f"Unknown label {label!r} for {r['id']} / {r['model']}")
+        r["label"], r["label_note"] = label, note
+    return True
+
+
+def write_csv(rows: list[dict], path: Path) -> None:
+    fields = list(dict.fromkeys(k for r in rows for k in r))
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def write_summary(rows: list[dict], cfg: Settings, path: Path) -> None:
     models = list(dict.fromkeys(r["model"] for r in rows))
     lines = [
         "# Handbook chatbot evaluation",
         "",
-        f"- Date: {datetime.now():%Y-%m-%d %H:%M}",
+        f"- Run: `{path.parent.name}`",
         (f"- Embeddings: `{cfg.embed_model}`, chunk {cfg.chunk_size}/{cfg.chunk_overlap}, "
         f"top-k {cfg.top_k}, temperature {cfg.temperature}"),
         f"- Questions: {len(rows) // max(len(models), 1)}",
@@ -79,6 +103,18 @@ def write_summary(rows: list[dict], cfg: Settings, path: Path) -> None:
             f"{statistics.median(r['latency_s'] for r in mr)} | "
             f"{max(r['latency_s'] for r in mr)} | {sum(r['used_fallback'] for r in mr)} |"
         )
+    if any(r.get("label") for r in rows):
+        lines += [
+            "",
+            "## Hand labels",
+            "",
+            "| Model | " + " | ".join(LABELS) + " |",
+            "|---|" + "---|" * len(LABELS),
+        ]
+        for m in models:
+            mr = [r for r in rows if r["model"] == m]
+            counts = [sum(r.get("label") == lab for r in mr) for lab in LABELS]
+            lines.append(f"| `{m}` | " + " | ".join(map(str, counts)) + " |")
     lines += ["", "## Answers", ""]
     for qid in dict.fromkeys(r["id"] for r in rows):
         qr = [r for r in rows if r["id"] == qid]
@@ -96,6 +132,7 @@ def write_summary(rows: list[dict], cfg: Settings, path: Path) -> None:
                 (f"**{r['model']}** (retrieved pages {r['retrieved_pages']}, "
                 f"hit={r['retrieval_hit']}, coverage={r['fact_coverage']}, {r['latency_s']}s)"),
                 "",
+                *([f"*Label: **{r['label']}** — {r['label_note']}*", ""] if r.get("label") else []),
                 truncate(r["answer"].strip()),
                 "",
             ]
@@ -125,8 +162,10 @@ def main() -> None:
 
     if args.summarize:
         rows = json.loads((args.summarize / "results.json").read_text(encoding="utf-8"))
+        if apply_labels(rows, args.summarize / "labels.yaml"):
+            write_csv(rows, args.summarize / "results.csv")
         write_summary(rows, cfg, args.summarize / "summary.md")
-        print(f"Rewrote {args.summarize / 'summary.md'}")
+        print(f"Rewrote summary.md / results.csv in {args.summarize}")
         return
 
     spec = yaml.safe_load(QUESTIONS_FILE.read_text(encoding="utf-8"))
@@ -185,10 +224,7 @@ def main() -> None:
                   f"cov={row['fact_coverage']!s:<5} {latency:>5}s", flush=True)
 
     (out_dir / "results.json").write_text(json.dumps(rows, indent=2, ensure_ascii=False))
-    with open(out_dir / "results.csv", "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
-        writer.writeheader()
-        writer.writerows(rows)
+    write_csv(rows, out_dir / "results.csv")
     write_summary(rows, cfg, out_dir / "summary.md")
     print(f"\nSaved results to {out_dir.relative_to(PROJECT_ROOT)}/")
 
