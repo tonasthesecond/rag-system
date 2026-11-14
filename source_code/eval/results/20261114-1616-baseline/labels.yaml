@@ -1,0 +1,135 @@
+# Hand labels for the baseline run (DRAFT - review before using in the report).
+#
+#   correct     answers the question and agrees with the handbook (small harmless
+#               extra detail is OK)
+#   incomplete  what it says is right, but key parts of the answer are missing
+#   incorrect   wrong, answers a different question, or invents facts
+#   ambiguous   mixes correct and wrong statements, or is faithful to a source that
+#               is itself wrong, so a reader can't tell what is true
+#
+# Format: <question id>: { <model>: [label, "reason"] }
+
+req-major-credits:
+  qwen2.5:0.5b: [incorrect, "Describes the declaration rule and the MINOR requirements; never gives 56."]
+  qwen2.5:1.5b: [correct, "56 is right. Its shown arithmetic (4+4+4+4+3x4+16) actually sums to 44 - it drops CS302 and the capstone - but the final number is copied from the text."]
+  qwen2.5:3b: [correct, "56 is right; 'exploratory courses and electives' as part of the 56 is loosely worded."]
+
+req-major-courses:
+  qwen2.5:0.5b: [incorrect, "Confuses the course list with the 'two courses to declare' rule; lists only CS101 and MATH202."]
+  qwen2.5:1.5b: [incorrect, "Lists the MINOR requirements (six courses, CS103/CS104 options) as if they were the major's."]
+  qwen2.5:3b: [incorrect, "Also gives the minor structure and invents 'CS 202' / 'CS 301' as examples; omits CS203 and CS302."]
+
+req-declare-major:
+  qwen2.5:0.5b: [incorrect, "First sentence is right, then invents extra requirements (six courses, three advanced courses...)."]
+  qwen2.5:1.5b: [ambiguous, "Correct rule, but adds that you must also 'fulfill the minor requirements', which is false."]
+  qwen2.5:3b: [ambiguous, "Says 'two CS courses OR MATH 202' (should be: MATH 202 counts as one) and invents a CS104 requirement."]
+
+req-declare-minor:
+  qwen2.5:0.5b: [correct, "At least one CS course, MATH 202 counts."]
+  qwen2.5:1.5b: [correct, "Verbatim from the handbook."]
+  qwen2.5:3b: [incorrect, "Quotes the rule correctly, then 'reasons' that you need at least seven courses. Auto coverage scored this 1.0."]
+
+req-minor:
+  qwen2.5:0.5b: [incorrect, "Garbled list: two intermediate courses, advanced course twice, CS201 missing; also mixes in the major rule."]
+  qwen2.5:1.5b: [correct, "All six courses with the right options."]
+  qwen2.5:3b: [correct, "All six courses (programming-course options not spelled out)."]
+
+req-exploratory:
+  qwen2.5:0.5b: [incorrect, "Answers the major-declaration question instead. Auto coverage 0.5 is a false positive (matched 'two')."]
+  qwen2.5:1.5b: [correct, "Up to 2 courses (8 credits)."]
+  qwen2.5:3b: [correct, "Up to 2 of the 6 exploratory courses (8 credits)."]
+
+req-core:
+  qwen2.5:0.5b: [incorrect, "Presents the Core LEARNING OUTCOMES as if they were course names."]
+  qwen2.5:1.5b: [incomplete, "Says there are four Core courses but names none, although the list was in a retrieved chunk."]
+  qwen2.5:3b: [incomplete, "Same as 1.5b: generic description, no course names."]
+
+req-degree-name:
+  qwen2.5:0.5b: [ambiguous, "Says 'B.S. in Applied Mathematics' - faithful to a copy-paste error on p.6 of the handbook."]
+  qwen2.5:1.5b: [ambiguous, "Same source error; doesn't notice it conflicts with 'B.S. Computer Science' on p.1."]
+  qwen2.5:3b: [ambiguous, "Same source error."]
+
+capstone-eligibility:
+  qwen2.5:0.5b: [correct, "GPA 3.5 + approved application."]
+  qwen2.5:1.5b: [correct, "GPA 3.5 + approved application."]
+  qwen2.5:3b: [correct, "GPA 3.5 + approved application."]
+
+capstone-honors:
+  qwen2.5:0.5b: [incorrect, "Long 'analysis' that never answers yes/no and claims extra courses are required."]
+  qwen2.5:1.5b: [incomplete, "'No' is right, but the 'alternative' it gives is the capstone eligibility criteria, not the two-course option."]
+  qwen2.5:3b: [correct, "Not required; alternative is extra intermediate/advanced courses and graduating without honors."]
+
+course-advanced-list:
+  qwen2.5:0.5b: [ambiguous, "List is right but every course is tagged '(CS TBA)', leaked from the cross-listing table."]
+  qwen2.5:1.5b: [ambiguous, "List is right but every course is labelled '(16 credits)' - that is the total for four advanced courses."]
+  qwen2.5:3b: [correct, "Clean list (Bioinformatics missing: it sits on the next page/chunk)."]
+
+course-intermediate-list:
+  qwen2.5:0.5b: [correct, "All five."]
+  qwen2.5:1.5b: [correct, "All five."]
+  qwen2.5:3b: [correct, "All five."]
+
+course-prereq-cs311:
+  qwen2.5:0.5b: [correct, "CS313 (then describes CS313 using CS311's own description - minor)."]
+  qwen2.5:1.5b: [correct, "CS313."]
+  qwen2.5:3b: [correct, "CS313."]
+
+course-prereq-cs302:
+  qwen2.5:0.5b: [incorrect, "Summarises the course content; never states the prerequisites."]
+  qwen2.5:1.5b: [correct, "CS201 and MATH 202."]
+  qwen2.5:3b: [correct, "CS201 and MATH 202."]
+
+course-cs201-language:
+  qwen2.5:0.5b: [correct, "Java."]
+  qwen2.5:1.5b: [correct, "Java."]
+  qwen2.5:3b: [correct, "Java, plus some Python/C++."]
+
+course-cs207-content:
+  qwen2.5:0.5b: [correct, "Android apps in Java, UML design in teams."]
+  qwen2.5:1.5b: [correct, "Android apps in Java, UML."]
+  qwen2.5:3b: [correct, "Android apps in Java, UML."]
+
+course-cs210-availability:
+  qwen2.5:0.5b: [incorrect, "Describes the course; doesn't answer how often it is offered."]
+  qwen2.5:1.5b: [incorrect, "'Once a year' - read from a neighbouring row of the flattened catalogue table."]
+  qwen2.5:3b: [ambiguous, "Quotes 'On holding' correctly, then says that 'typically means once a year'. Auto coverage scored 1.0."]
+
+course-cs311-topics:
+  qwen2.5:0.5b: [correct, "All topics (repeats itself)."]
+  qwen2.5:1.5b: [correct, "All topics and applications."]
+  qwen2.5:3b: [correct, "All topics and applications."]
+
+outcomes-plo:
+  qwen2.5:0.5b: [incorrect, "Repetition loop: 238,039 characters over 44 minutes; unusable even though it starts roughly right."]
+  qwen2.5:1.5b: [correct, "Core LOs (3 of 5 listed) plus all three Major LOs; the handbook defines PLOs as both."]
+  qwen2.5:3b: [correct, "The three PLOs; teaching methods from the next table column are blended into the wording."]
+
+outcomes-peo:
+  qwen2.5:0.5b: [correct, "All three PEOs."]
+  qwen2.5:1.5b: [correct, "All three PEOs verbatim."]
+  qwen2.5:3b: [correct, "All three PEOs, paraphrased."]
+
+careers:
+  qwen2.5:0.5b: [incomplete, "Vague fields ('software engineering, data science, AI') instead of the listed job titles."]
+  qwen2.5:1.5b: [correct, "All seven roles."]
+  qwen2.5:3b: [correct, "All seven roles."]
+
+grad-programs:
+  qwen2.5:0.5b: [correct, "Right three programs; the 'cross-listed' remark is invented but harmless."]
+  qwen2.5:1.5b: [correct, "Right three programs."]
+  qwen2.5:3b: [correct, "Right three programs."]
+
+teaching-assessment:
+  qwen2.5:0.5b: [ambiguous, "Generic filler; invents 'final exams in each course' and self-assessment."]
+  qwen2.5:1.5b: [correct, "Formative + summative with the listed examples."]
+  qwen2.5:3b: [correct, "Right, though it mixes teaching methods (lectures, labs) into assessment methods."]
+
+oos-tuition:
+  qwen2.5:0.5b: [incorrect, "Hallucinates '$50,000 per year at Alibaba Cloud' and cites the handbook for it."]
+  qwen2.5:1.5b: [correct, "Says the handbook doesn't contain it."]
+  qwen2.5:3b: [correct, "Says the handbook doesn't contain it."]
+
+oos-department-head:
+  qwen2.5:0.5b: [incorrect, "Invents 'Professor Xie' and courses he teaches."]
+  qwen2.5:1.5b: [correct, "Says the handbook doesn't mention it."]
+  qwen2.5:3b: [correct, "Says the handbook doesn't mention it."]
