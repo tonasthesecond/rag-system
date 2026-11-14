@@ -1,7 +1,7 @@
 # Handbook chatbot evaluation
 
 - Run: `20261114-1616-baseline`
-- Embeddings: `nomic-embed-text`, chunk 1000/200, top-k 5, temperature 0.0
+- Embeddings: `nomic-embed-text`, chunk 1000/200, top-k 5, temperature 0.0, prompt `baseline`, threshold 0.3 (baseline rule: average of 1/(1+d); never triggered), max tokens unlimited
 - Questions: 25
 
 | Model | Page hit | Chunk hit | Avg fact coverage | Median latency (s) | Max latency (s) | Fallbacks |

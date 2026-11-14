@@ -1,0 +1,10 @@
+{
+  "embed_model": "nomic-embed-text",
+  "top_k": 5,
+  "temperature": 0.0,
+  "chunk_size": 1000,
+  "chunk_overlap": 200,
+  "prompt_style": "baseline",
+  "score_threshold": "0.3 (baseline rule: average of 1/(1+d); never triggered)",
+  "max_tokens": "unlimited"
+}

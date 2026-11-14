@@ -1,0 +1,26 @@
+# Hand labels - experiment B: strict prompt, chunk 800/150, qwen2.5:1.5b. DRAFT - review.
+req-major-credits: {qwen2.5:1.5b: [ambiguous, "Says 56, then invents a total of 80 credits (adds the minor's 24) and a 32/48 core/elective split."]}
+req-major-courses: {qwen2.5:1.5b: [incomplete, "CS101, CS201, CS302 are right (major list now retrieved) but CS203, MATH202, intermediate/advanced courses and capstone are missing."]}
+req-declare-major: {qwen2.5:1.5b: [correct, "Exact rule."]}
+req-declare-minor: {qwen2.5:1.5b: [correct, "Exact rule."]}
+req-minor: {qwen2.5:1.5b: [incorrect, "Answers how to DECLARE a minor instead of the minor's requirements."]}
+req-exploratory: {qwen2.5:1.5b: [correct, "Up to 2 courses (8 credits)."]}
+req-core: {qwen2.5:1.5b: [correct, "All four Core courses - fixed by 800-char chunks (list chunk now retrieved)."]}
+req-degree-name: {qwen2.5:1.5b: [ambiguous, "Repeats the handbook's 'Applied Mathematics' error."]}
+capstone-eligibility: {qwen2.5:1.5b: [correct, "GPA 3.5 + approved application."]}
+capstone-honors: {qwen2.5:1.5b: [correct, "Not required; two more intermediate/advanced courses, graduate without honors."]}
+course-advanced-list: {qwen2.5:1.5b: [correct, "Clean list; cites p.13 although the list is on p.8."]}
+course-intermediate-list: {qwen2.5:1.5b: [incomplete, "4 of 5 - drops Introduction to Artificial Intelligence."]}
+course-prereq-cs311: {qwen2.5:1.5b: [correct, "CS313."]}
+course-prereq-cs302: {qwen2.5:1.5b: [correct, "CS201 and MATH 202."]}
+course-cs201-language: {qwen2.5:1.5b: [correct, "Java."]}
+course-cs207-content: {qwen2.5:1.5b: [correct, "Android apps in Java, UML."]}
+course-cs210-availability: {qwen2.5:1.5b: [incorrect, "'Once a year' - neighbouring table row."]}
+course-cs311-topics: {qwen2.5:1.5b: [incorrect, "Gives CS313 Deep Learning for AI's topics (data augmentation, RNNs). The two descriptions are near-identical; new chunk boundaries put CS313's text first."]}
+outcomes-plo: {qwen2.5:1.5b: [ambiguous, "Mixes lists: presents Core LO 3 ('formulate quantitative inquiries') as a Major LO."]}
+outcomes-peo: {qwen2.5:1.5b: [correct, "PEO1-3 verbatim."]}
+careers: {qwen2.5:1.5b: [correct, "All seven roles."]}
+grad-programs: {qwen2.5:1.5b: [correct, "Right three programs."]}
+teaching-assessment: {qwen2.5:1.5b: [correct, "Right; wrongly adds that summative assessment isn't mentioned (minor)."]}
+oos-tuition: {qwen2.5:1.5b: [correct, "Exact 'not found' sentence."]}
+oos-department-head: {qwen2.5:1.5b: [correct, "Exact 'not found' sentence."]}

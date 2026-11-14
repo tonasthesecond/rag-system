@@ -1,0 +1,134 @@
+model,id,category,question,reference,expected_pages,retrieved_pages,retrieval_hit,evidence_hit,fact_coverage,top_score,avg_score,used_fallback,latency_s,answer,label,label_note
+qwen2.5:0.5b,req-major-credits,program requirements,How many credits are required for the Computer Science major requirements?,The major requirements total 56 credits.,"[2, 7]","[7, 7, 8, 4, 11]",True,True,0.0,0.8427,0.7445,False,30.5,"I couldn't find that in the documents.
+The Computer Science major requires students to complete at least two computer science courses (MATH 202 - Discrete Math is also counted).",incorrect,'Couldn't find' + the major-declaration rule; never says 56.
+qwen2.5:0.5b,req-major-courses,program requirements,Which specific courses are required for the Computer Science major?,"CS 101 Introduction to Programming, CS 201 Data Structures & Algorithms, CS 203 Computer Organization, MATH 202 Discrete Math, three intermediate courses, CS 302 Algorithms & Theory of Computing, four advanced courses, and Capstone I and II (or two additional intermediate/advanced courses).",[7],"[7, 13, 8, 14, 7]",True,True,0.17,0.7934,0.7628,False,28.9,"To formally declare Computer Science as their major, the student must complete at least two Computer Science courses (MATH 202 - Discrete Math is also counted).",incorrect,Gives the declaration rule instead of the course list.
+qwen2.5:0.5b,req-declare-major,academic policies,What do I need to complete before I can formally declare Computer Science as my major?,At least two Computer Science courses (MATH 202 Discrete Math also counts).,[7],"[7, 7, 4, 8, 14]",True,True,0.5,0.801,0.7389,False,24.1,"To formally declare Computer Science as your major, you must complete at least two computer science courses (CS 101 - Introduction to Programming and CS 203 - Computer Organization). You can take one programming course (e.g., CS 104) or a data structures & algorithms course (e.g., CS 201), and then choose three intermediate courses that cover the major aspects in computer science. After completing these courses, you will have flexibility to select four elective advanced courses to explore your areas of interest deeper.",ambiguous,"'At least two CS courses' is right, but it names them as CS101 and CS203 and adds invented steps."
+qwen2.5:0.5b,req-declare-minor,academic policies,How many CS courses must be completed to declare a minor in Computer Science?,At least one Computer Science course (MATH 202 Discrete Math also counts).,[7],"[7, 11, 11, 7, 13]",True,True,0.0,0.8773,0.7763,False,21.8,"To declare a minor in Computer Science, students must complete at least two computer science courses (MATH 202 - Discrete Math is also counted).",incorrect,Says two courses (it's one) - copied from the major rule.
+qwen2.5:0.5b,req-minor,program requirements,What are the requirements for a minor in Computer Science?,"24 credits / six courses: one programming course (CS 101, CS 103 or CS 104), one 100- or 200-level CS course, CS 201 Data Structures & Algorithms, one intermediate course, one 200- or 300-level CS course, and one advanced course.",[7],"[7, 7, 11, 8, 4]",True,True,0.67,0.8723,0.7547,False,31.4,"I couldn't find that in the documents.
+Minor Requirements:
+The minor requires students to take a total of six courses:
+
+• One programming course (4 credits)
+• One 100-level or 200-level CS course (4 credits)
+• Two intermediate courses (4 credits)
+• One 200-level or 300-level CS course (4 credits)
+• One advanced course (4 credits)
+
+Major Requirements:
+To formally declare a minor in Computer Science, the student must complete at least one Computer Science course (MATH 202 - Discrete Math is also counted).
+
+Sample Minor Plan:
+Year 1 Year 2 Year 3 Year 4
+Core Curriculum
+Introduction to CS
+1 Major course
+2 ELECTIVES
+Computer Science I
+Computer Science II
+3 Major courses
+3 ELECTIVES
+Intermediate CS course
+Intermediate CS course
+5 Major courses
+1 ELECTIVES
+Advanced CS course
+5 Major courses
+2 ELECTIVES",ambiguous,"Says 'couldn't find', then dumps a partly wrong list (two intermediate courses, CS201 missing) and table fragments."
+qwen2.5:0.5b,req-exploratory,program requirements,How many exploratory courses can be counted toward the major?,Up to 2 of the 6 exploratory courses (8 credits) can be counted toward the major.,[7],"[7, 6, 11, 7, 6]",True,True,0.5,0.7904,0.7205,False,16.0,2 courses,correct,2 courses.
+qwen2.5:0.5b,req-core,program requirements,What are the Core courses in the general curriculum?,"Four Core courses (16 credits): Global Humanities, Modern Vietnamese Culture and Society, Design and Systems Thinking, and one QUEST course (Quantitative Reasoning, Scientific Inquiry, Programming for Data Science and Visualization, or Introduction to Statistics).",[6],"[6, 5, 6, 8, 6]",True,True,1.0,0.7208,0.688,False,19.9,"Core courses in the general curriculum include:
+
+1. Global Humanities
+2. Modern Vietnamese Culture and Society
+3. Design and Systems Thinking
+4. Quantitative Understanding and Empirical Scientific Thinking (QUEST)
+5. Programming for Data Science and Visualization
+6. Introduction to Statistics
+
+These core courses serve as the foundation of American liberal arts education, igniting new ways of thinking and learning, building essential skills, and connecting to Fulbright’s intellectual community.",ambiguous,Right names but lists six 'Core courses' - the QUEST options shown as separate Core courses.
+qwen2.5:0.5b,req-degree-name,program requirements,What degree is awarded after completing the program requirements?,"A Bachelor of Science in Computer Science (B.S. Computer Science). Note: page 6 of the handbook mistakenly says ""Bachelor of Science in Applied Mathematics"" - a copy-paste error in the source document.","[1, 6]","[6, 5, 6, 5, 3]",True,True,0.0,0.6697,0.6577,False,26.7,Bachelor of Science in Applied Mathematics,ambiguous,Repeats the handbook's 'Applied Mathematics' error.
+qwen2.5:0.5b,capstone-eligibility,academic policies,What are the eligibility requirements for the CS capstone project?,A minimum major GPA of 3.5 and approval of a successful application (details in the Computer Science Capstone Handbook).,[9],"[9, 7, 16, 17, 15]",True,True,0.0,0.8443,0.6895,False,30.1,"• Major Requirements (56 credits)
+• CS 101: Introduction to Programming (4 credits)
+• CS 201: Data Structures & Algorithms (4 credits)
+• CS 203: Computer Organization (4 credits)
+• MATH 202: Discrete Math (4 credits)
+• Three intermediate courses (12 credits)
+• CS 302: Algorithms & Theory of Computing (4 credits)
+• Four advanced courses (16 credits)
+• Capstone I and Capstone II (8 credits)
+OR two additional intermediate courses (8 credits)
+OR two additional advanced courses (8 credits)
+OR an additional intermediate course and an additional advanced course (8 credits)",incorrect,Dumps the major requirements list instead.
+qwen2.5:0.5b,capstone-honors,academic policies,"Do I have to do a capstone to graduate, and what is the alternative?",No. Doing the capstone (CS 401/402) lets students graduate with honors; the alternative is to take two more intermediate or advanced courses and graduate without honors.,"[7, 8]","[8, 9, 3, 2, 5]",True,True,0.0,0.6944,0.6225,False,26.4,"I couldn't find that in the documents.
+Flexibility in their choice of four elective advanced courses to explore their areas of interest deeper is one of the Founda’onal Courses. Students can choose from Introduction to Programming, Data Structures & Algorithms, Computer Organization, Discrete Mathematics, and Algorithms & Theory of Computing.",incorrect,'Couldn't find' followed by unrelated text about foundational courses.
+qwen2.5:0.5b,course-advanced-list,course offerings,Can you list some of the advanced courses offered in the CS major?,"Examples: Foundations of Software Engineering, Database Systems, Computer Security, Cloud Computing, Human-Computer Interaction, Computer Graphics, Game Design & Development, Machine Learning, Deep Learning, Advanced Deep Learning, Computer Vision, Natural Language Processing, Optimization, Computational Social Media, Bioinformatics.","[8, 9]","[8, 13, 11, 7, 8]",True,True,1.0,0.7642,0.744,False,17.5,"• Foundations of Software Engineering
+• Database Systems
+• Computer Security
+• Cloud Computing
+• Human-Computer Interaction
+• Computer Graphics
+• Game Design & Development
+• Machine Learning
+• Deep Learning
+• Advanced Deep Learning
+• Computer Vision
+• Natural Language Processing
+• Optimization
+• Computational Social Media",correct,Clean list.
+qwen2.5:0.5b,course-intermediate-list,course offerings,What are the intermediate courses in the CS major?,"Sample intermediate courses: Software Construction, Programming Language Paradigms, Operating Systems, Computer Networks, Introduction to Artificial Intelligence.",[8],"[8, 13, 11, 11, 8]",True,True,1.0,0.7915,0.7497,False,16.2,"Intermediate Courses:
+• Software construction
+• Programming Language Paradigms
+• Operating Systems
+• Computer Networks
+• Introduction to Artificial Intelligence",correct,All five.
+qwen2.5:0.5b,course-prereq-cs311,course offerings,What is the prerequisite for CS311 Advanced Deep Learning?,CS313 Deep Learning for AI (which itself requires CS208).,"[13, 18]","[18, 18, 18, 17, 16]",True,True,1.0,0.8976,0.7874,False,19.8,The prerequisite for CS311 Advanced Deep Learning is CS313.,correct,CS313.
+qwen2.5:0.5b,course-prereq-cs302,course offerings,What are the prerequisites for CS302 Algorithms & Theory of Computing?,CS201 Data Structures & Algorithms and MATH202 Discrete Math.,"[13, 17]","[17, 12, 18, 18, 14]",True,True,1.0,0.8262,0.7758,False,26.0,The prerequisites for CS302 Algorithms & Theory of Computing are CS201 and MATH 202.,correct,CS201 and MATH 202 (baseline 0.5b missed this).
+qwen2.5:0.5b,course-cs201-language,course offerings,Which programming language is mainly used in CS201 Data Structures & Algorithms?,Java (with some Python/C++ implementations also introduced).,[14],"[14, 16, 11, 15, 18]",True,True,1.0,0.8024,0.7483,False,22.8,"Java is the main programming language used in the course, but some Python/C++ implementations are also introduced.",correct,Java plus some Python/C++.
+qwen2.5:0.5b,course-cs207-content,course offerings,What do students build in CS207 Software Construction?,"They work in teams to design software with UML (use-case, sequence and class diagrams) and implement the design by building Android applications in Java.",[15],"[15, 16, 13, 14, 4]",True,True,1.0,0.8064,0.6784,False,41.6,Students build Android applications using Java in CS207 Software Construction.,correct,Android apps in Java.
+qwen2.5:0.5b,course-cs210-availability,course offerings,How often is CS210 Computer Networks offered?,"It is listed as ""On holding"" (not currently scheduled), prerequisite CS201.",[13],"[16, 13, 17, 13, 16]",True,True,0.0,0.7482,0.6729,False,25.2,"I couldn't find that in the documents.
+The course is offered on a yearly basis and does not have a specific frequency mentioned.",incorrect,"'Couldn't find', then 'offered on a yearly basis'."
+qwen2.5:0.5b,course-cs311-topics,course offerings,What topics does the Advanced Deep Learning course cover?,"Transfer Learning, GANs, Reinforcement Learning, Attention and Transformer Networks, Graph Neural Networks, plus applications such as NLP, robotics, autonomous driving and time-series.",[18],"[18, 18, 18, 18, 15]",True,True,0.0,0.8175,0.7594,False,18.5,"Decision Tree, Random Forest, Support Vector Machine, Deep Neural Network); unsupervised learning (K-means clustering, Hierarchical clustering). The course will also discuss recent applications of machine learning, such as to robotics, autonomous driving systems, face and speech recognition, text and web data processing, etc.",incorrect,Copies a fragment of the CS208/CS307 machine-learning description.
+qwen2.5:0.5b,outcomes-plo,learning outcomes,What are the program learning outcomes of the CS major?,"PLO1: understand fundamental CS (core concepts, compare methods, solve problems in theory and systems). PLO2: explain emerging aspects of CS (AI, ML, data science, business analytics, digital media). PLO3: develop real-world applications using knowledge of CS and other disciplines.","[5, 11]","[4, 5, 12, 11, 11]",True,True,1.0,0.7338,0.7158,False,47.9,"I couldn't find that in the documents.
+Program Learning Outcomes of the CS Major:
+
+1. Demonstrate an understanding of fundamental computer science by illustrating core concepts, comparing methods, analyzing and solving problems in both theory and systems.
+2. Explain emerging aspects of the computer science discipline (e.g., artificial intelligence, machine learning, data science, business analytics, digital media, etc.).
+3. Develop real-world applications (e.g., software systems and frameworks, mobile apps, data pipeline, etc.) by using knowledge of computer science and other disciplines.
+4. Apply theoretical concepts to practical problems in various fields such as data analysis, artificial intelligence, machine learning, and business analytics.
+
+The program learning outcomes are derived from the two main components of the curriculum: the Core Curriculum and the Major Curriculum. They consist of Core Learning Outcomes (Core LOs) and Major Learning Outcomes (Major LOs). These outcomes are presented in the following tables and are also mapped to the FUV Graduate Attributes.
+Short Name Core LOs FUV Graduate
+Attribute
+CoreLO 1 Students will be able to demonstrate global awareness and respect for diverse perspectives.
+GA1, GA3, GA8
+CoreLO 2 Students will be able to locate and critically analyze information and present evidence-based arguments in written and oral forms.
+GA1, GA4, GA5,
+GA6, GA7, GA9
+AvaiCoreLO 3 Students will be able to formulate quantitative inquiries and solve problems using mathematical models.
+GA1, GA2, GA3, GA4, GA5, GA6, GA7, GA8, GA9, GA10, GA11, GA12, GA13, GA14, GA15
+AvaiCoreLO 4 Students will be able to analyze and evaluate data using statistical methods.
+GA1, GA2, GA3, GA4, GA5, GA6, GA7, GA8, GA9, GA10, GA11, GA12, GA13, GA14, GA15
+AvaiCoreLO 5 Students will be able to design and implement algorithms for solving problems.
+GA1, GA2, GA3, GA4, GA5, GA6, GA7, GA8, GA9, GA10, GA11, GA12, GA13, GA14, GA15
+AvaiCoreLO 6 Students will be able to use software tools and platforms for data",ambiguous,"'Couldn't find', then the three PLOs correctly plus an invented fourth."
+qwen2.5:0.5b,outcomes-peo,learning outcomes,What are the Program Educational Objectives (PEOs)?,"PEO1: skills/knowledge for industry employment or graduate school. PEO2: professional and personal ethics, collaboration and communication. PEO3: cultivate innovators and thinkers to solve CS-related challenges.",[4],"[4, 4, 4, 4, 5]",True,True,0.67,0.6991,0.6596,False,18.3,"Program Educational Objectives (PEOs): The Computer Science major at Fulbright is designed to prepare students for work in industry or continue their lifelong learning as well as potential graduate-level studies. It aims to equip students with necessary skills and knowledge to gain employment in the technology economy, solve computer science-related challenges, and become innovators and thinkers who can address global issues through innovative solutions. The major curriculum includes core courses such as Computer Science I, II, III, and IV, along with elective courses in areas like Artificial Intelligence, Machine Learning, Data Science, Business Analytics, and more. Students will be exposed to a student-centered, interdisciplinary, and future-focused approach to education, fostering their ability to collaborate effectively and communicate across different disciplines.",ambiguous,Loose paraphrase of the PEOs mixed with invented 'Computer Science I-IV' courses.
+qwen2.5:0.5b,careers,career paths,What jobs have Computer Science graduates gone on to?,"Software engineer, testing engineer, AI engineer, data engineer, business analyst, product owner, product development manager.",[5],"[5, 6, 5, 4, 4]",True,True,1.0,0.7763,0.7046,False,16.5,"Graduates with the B.S. Computer Science have successfully gained employment as:
+
+• Software engineer
+• Testing engineer
+• AI engineer
+• Data engineer
+• Business analyst
+• Product owner
+• Product development manager
+
+These positions are typical for graduates of a B.S. Computer Science program, which prepares students with an adaptable skill set to respond to the speed of technological change and develop solutions for the problems of today and tomorrow.",correct,All seven roles.
+qwen2.5:0.5b,grad-programs,career paths,Which graduate programs have CS students been admitted to?,"MSc/PhD Computer Science, MSc Data Science, MSc Bioinformatics (in the US and Europe).",[6],"[6, 13, 5, 5, 4]",True,True,1.0,0.7816,0.6922,False,12.6,"I couldn't find that in the documents.
+MSc/PhD Computer Science
+MSc Data Science
+MSc Bioinformatics",ambiguous,"'Couldn't find', then the correct three programs."
+qwen2.5:0.5b,teaching-assessment,teaching & assessment,How are students assessed in the Computer Science major?,"Active and collaborative learning with continuous formative assessment (discussion, in-class activities, applied learning) plus summative methods; examples include programming tests, quizzes, exams, group presentations, class projects and the capstone.",[12],"[12, 4, 12, 1, 7]",True,True,1.0,0.7569,0.6977,False,17.6,"I couldn't find that in the documents.
+Students are assessed through continuous formative assessment of student learning through discussion (instructor-led and student-led), in-class activities, and applied learning. They also receive quizzes, exams, group presentations, capstone projects, and field trips to demonstrate their understanding of fundamental computer science concepts.",ambiguous,"'Couldn't find', then a correct summary."
+qwen2.5:0.5b,oos-tuition,out of scope,How much is the tuition fee for the Computer Science program?,Not stated in the handbook - the chatbot should say it does not know.,[],"[6, 13, 8, 4, 14]",,,,0.6226,0.6124,False,17.7,"I couldn't find that in the documents.
+The excerpt does not provide information about tuition fees for Computer Science programs. Therefore, I cannot accurately answer this question based on the given excerpts.",correct,"Declines (baseline 0.5b invented $50,000 'at Alibaba Cloud')."
+qwen2.5:0.5b,oos-department-head,out of scope,Who is the head of the Computer Science department?,Not stated in the handbook - the chatbot should say it does not know.,[],"[4, 6, 5, 4, 13]",,,,0.648,0.6222,False,16.4,"I couldn't find that in the documents.
+The Computer Science department is headed by the head of the department, who is not specified in the given excerpts.",correct,Declines (baseline 0.5b invented 'Professor Xie').

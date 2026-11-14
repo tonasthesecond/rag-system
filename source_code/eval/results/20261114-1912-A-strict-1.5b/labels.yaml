@@ -1,0 +1,27 @@
+# Hand labels - experiment A: strict prompt, chunk 1000/200, qwen2.5:1.5b. DRAFT - review.
+# Labels as in the baseline labels.yaml (correct / incomplete / ambiguous / incorrect).
+req-major-credits: {qwen2.5:1.5b: [correct, "56 credits, with citation."]}
+req-major-courses: {qwen2.5:1.5b: [incorrect, "CS101, CS201 and CS104 - CS104 is not required; misses CS203, MATH202, CS302 etc. Major-list chunk still not retrieved."]}
+req-declare-major: {qwen2.5:1.5b: [correct, "Exact rule, no invented extras (baseline added a false 'minor requirements' condition)."]}
+req-declare-minor: {qwen2.5:1.5b: [correct, "Exact rule."]}
+req-minor: {qwen2.5:1.5b: [incomplete, "Gives the declaration rule and 'six courses total' but not which courses (baseline listed all six)."]}
+req-exploratory: {qwen2.5:1.5b: [correct, "2 courses (terse; omits the 8 credits)."]}
+req-core: {qwen2.5:1.5b: [incomplete, "Description without course names - list chunk not retrieved."]}
+req-degree-name: {qwen2.5:1.5b: [ambiguous, "Repeats the handbook's 'Applied Mathematics' error."]}
+capstone-eligibility: {qwen2.5:1.5b: [correct, "GPA 3.5 + approved application."]}
+capstone-honors: {qwen2.5:1.5b: [incorrect, "Claims the excerpts don't mention an alternative; the honors/two-course rule was in the retrieved text."]}
+course-advanced-list: {qwen2.5:1.5b: [correct, "Clean list without the invented annotations; cites p.13 although the list is on p.8."]}
+course-intermediate-list: {qwen2.5:1.5b: [incomplete, "4 of 5 - drops Introduction to Artificial Intelligence."]}
+course-prereq-cs311: {qwen2.5:1.5b: [correct, "CS313."]}
+course-prereq-cs302: {qwen2.5:1.5b: [correct, "CS201 and MATH 202."]}
+course-cs201-language: {qwen2.5:1.5b: [correct, "Java, with citation."]}
+course-cs207-content: {qwen2.5:1.5b: [correct, "Android apps in Java, UML."]}
+course-cs210-availability: {qwen2.5:1.5b: [incorrect, "'Once a year' - neighbouring table row, as in the baseline."]}
+course-cs311-topics: {qwen2.5:1.5b: [correct, "All topics and applications."]}
+outcomes-plo: {qwen2.5:1.5b: [correct, "Core LOs and Major LOs, as in the baseline."]}
+outcomes-peo: {qwen2.5:1.5b: [correct, "PEO1-3 verbatim with citation."]}
+careers: {qwen2.5:1.5b: [correct, "All seven roles with citation."]}
+grad-programs: {qwen2.5:1.5b: [correct, "Right three programs."]}
+teaching-assessment: {qwen2.5:1.5b: [correct, "Formative assessment and the listed examples."]}
+oos-tuition: {qwen2.5:1.5b: [correct, "Exact 'not found' sentence."]}
+oos-department-head: {qwen2.5:1.5b: [correct, "Exact 'not found' sentence."]}

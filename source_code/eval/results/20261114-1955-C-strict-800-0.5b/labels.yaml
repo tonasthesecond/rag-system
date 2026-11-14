@@ -1,0 +1,28 @@
+# Hand labels - experiment C: strict prompt, chunk 800/150, qwen2.5:0.5b. DRAFT - review.
+# Recurring 0.5b behaviour here: it starts with the "I couldn't find that in the
+# documents." sentence and then answers anyway (labelled ambiguous when the rest is right).
+req-major-credits: {qwen2.5:0.5b: [incorrect, "'Couldn't find' + the major-declaration rule; never says 56."]}
+req-major-courses: {qwen2.5:0.5b: [incorrect, "Gives the declaration rule instead of the course list."]}
+req-declare-major: {qwen2.5:0.5b: [ambiguous, "'At least two CS courses' is right, but it names them as CS101 and CS203 and adds invented steps."]}
+req-declare-minor: {qwen2.5:0.5b: [incorrect, "Says two courses (it's one) - copied from the major rule."]}
+req-minor: {qwen2.5:0.5b: [ambiguous, "Says 'couldn't find', then dumps a partly wrong list (two intermediate courses, CS201 missing) and table fragments."]}
+req-exploratory: {qwen2.5:0.5b: [correct, "2 courses."]}
+req-core: {qwen2.5:0.5b: [ambiguous, "Right names but lists six 'Core courses' - the QUEST options shown as separate Core courses."]}
+req-degree-name: {qwen2.5:0.5b: [ambiguous, "Repeats the handbook's 'Applied Mathematics' error."]}
+capstone-eligibility: {qwen2.5:0.5b: [incorrect, "Dumps the major requirements list instead."]}
+capstone-honors: {qwen2.5:0.5b: [incorrect, "'Couldn't find' followed by unrelated text about foundational courses."]}
+course-advanced-list: {qwen2.5:0.5b: [correct, "Clean list."]}
+course-intermediate-list: {qwen2.5:0.5b: [correct, "All five."]}
+course-prereq-cs311: {qwen2.5:0.5b: [correct, "CS313."]}
+course-prereq-cs302: {qwen2.5:0.5b: [correct, "CS201 and MATH 202 (baseline 0.5b missed this)."]}
+course-cs201-language: {qwen2.5:0.5b: [correct, "Java plus some Python/C++."]}
+course-cs207-content: {qwen2.5:0.5b: [correct, "Android apps in Java."]}
+course-cs210-availability: {qwen2.5:0.5b: [incorrect, "'Couldn't find', then 'offered on a yearly basis'."]}
+course-cs311-topics: {qwen2.5:0.5b: [incorrect, "Copies a fragment of the CS208/CS307 machine-learning description."]}
+outcomes-plo: {qwen2.5:0.5b: [ambiguous, "'Couldn't find', then the three PLOs correctly plus an invented fourth."]}
+outcomes-peo: {qwen2.5:0.5b: [ambiguous, "Loose paraphrase of the PEOs mixed with invented 'Computer Science I-IV' courses."]}
+careers: {qwen2.5:0.5b: [correct, "All seven roles."]}
+grad-programs: {qwen2.5:0.5b: [ambiguous, "'Couldn't find', then the correct three programs."]}
+teaching-assessment: {qwen2.5:0.5b: [ambiguous, "'Couldn't find', then a correct summary."]}
+oos-tuition: {qwen2.5:0.5b: [correct, "Declines (baseline 0.5b invented $50,000 'at Alibaba Cloud')."]}
+oos-department-head: {qwen2.5:0.5b: [correct, "Declines (baseline 0.5b invented 'Professor Xie')."]}
