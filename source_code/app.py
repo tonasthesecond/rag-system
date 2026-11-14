@@ -65,7 +65,14 @@ with st.sidebar:
     with st.expander("Retrieval settings"):
         cfg.top_k = st.slider("Chunks to retrieve (top-k)", 1, 10, cfg.top_k)
         cfg.temperature = st.slider("Temperature", 0.0, 1.0, 0.2, 0.1)
-        cfg.score_threshold = st.slider("Min. avg relevance", 0.0, 1.0, cfg.score_threshold, 0.05)
+        cfg.score_threshold = st.slider("Min. best-chunk relevance (cosine)", 0.0, 1.0,
+                                        cfg.score_threshold, 0.05)
+        cfg.prompt_style = st.radio(
+            "Prompt", ["strict", "baseline"],
+            index=0 if cfg.prompt_style == "strict" else 1, horizontal=True,
+            help="strict: answer only from the documents. baseline: course prompt, may use "
+                 "general knowledge.",
+        )
 
     with st.expander("Add documents"):
         uploads = st.file_uploader("PDF or TXT", type=["pdf", "txt"], accept_multiple_files=True)
@@ -101,7 +108,7 @@ def render_sources(msg: dict) -> None:
                    icon="⚠️")
     if not msg.get("sources"):
         return
-    label = f"📄 Sources · avg relevance {msg['avg_score']:.2f} · {msg['model']}"
+    label = f"📄 Sources · best relevance {msg['top_score']:.2f} · {msg['model']}"
     with st.expander(label):
         for s in msg["sources"]:
             st.markdown(f"**{format_source(s)}** — relevance `{s['score']:.2f}`")
@@ -137,11 +144,14 @@ if question:
         with st.spinner("Searching documents..."):
             result = prepare(question, db, cfg)
         try:
-            answer = st.write_stream(get_llm(cfg).stream(result["prompt"]))
+            if result["answer"] is not None:  # strict mode refused without calling the LLM
+                answer = st.write(result["answer"]) or result["answer"]
+            else:
+                answer = st.write_stream(get_llm(cfg).stream(result["prompt"]))
         except (httpx.HTTPError, ollama.ResponseError) as exc:  # server down, model missing
             answer = f"⚠️ Could not reach the model `{cfg.llm_model}` at {cfg.ollama_url}: {exc}"
             st.error(answer)
         msg = {"role": "assistant", "content": str(answer).strip(), "model": cfg.llm_model,
-               **{k: result[k] for k in ("sources", "avg_score", "used_fallback")}}
+               **{k: result[k] for k in ("sources", "top_score", "used_fallback")}}
         render_sources(msg)
     st.session_state.messages.append(msg)

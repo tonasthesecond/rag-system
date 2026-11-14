@@ -26,6 +26,7 @@ def main() -> None:
     parser.add_argument("--vector-store", type=Path, help="Where to persist the Chroma index")
     parser.add_argument("--model", help="Ollama LLM to answer with (e.g. qwen2.5:1.5b)")
     parser.add_argument("--top-k", type=int)
+    parser.add_argument("--prompt", choices=["baseline", "strict"], help="Prompt style")
     parser.add_argument("--rebuild", action="store_true", help="Re-index from scratch")
     args = parser.parse_args()
 
@@ -38,6 +39,8 @@ def main() -> None:
         cfg.llm_model = args.model
     if args.top_k:
         cfg.top_k = args.top_k
+    if args.prompt:
+        cfg.prompt_style = args.prompt
 
     print(f"Embeddings: {cfg.embed_model} | LLM: {cfg.llm_model} | Ollama: {cfg.ollama_url}")
     db = load_or_build(cfg, rebuild=args.rebuild)
@@ -49,7 +52,7 @@ def main() -> None:
     if result["used_fallback"]:
         print("(answered from model knowledge — no relevant documents found)")
     else:
-        print(f"Sources (avg score {result['avg_score']}):")
+        print(f"Sources (best score {result['top_score']}):")
         for s in result["sources"][:3]:
             print(f"   {format_source(s)}  score={s['score']}")
 

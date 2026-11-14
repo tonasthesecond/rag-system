@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -38,9 +39,17 @@ class Settings:
     max_tokens: int = field(default_factory=lambda: int(_env("MAX_TOKENS", "512")))
     ollama_url: str = field(default_factory=lambda: _env("OLLAMA_URL", "http://127.0.0.1:11434"))
     top_k: int = field(default_factory=lambda: int(_env("TOP_K", "5")))
-    score_threshold: float = field(default_factory=lambda: float(_env("SCORE_THRESHOLD", "0.3")))
+    # Fallback when even the best retrieved chunk has a cosine similarity below
+    # this. Calibrated on the CS handbook: every handbook question scores >= 0.656,
+    # clearly off-topic questions <= 0.55 (see docs/DECISIONS.md D-17).
+    score_threshold: float = field(default_factory=lambda: float(_env("SCORE_THRESHOLD", "0.6")))
+    # "baseline" = course prompt (may use general knowledge);
+    # "strict"   = answer only from the documents, otherwise say so (D-18).
+    prompt_style: str = field(default_factory=lambda: _env("PROMPT_STYLE", "baseline"))
 
     @property
     def index_dir(self) -> Path:
-        """One persisted index per document folder, so corpora never get mixed."""
-        return self.vector_store / self.data_dir.name
+        """One index per (document folder, embedding model, chunking), so corpora and
+        experiments never overwrite each other."""
+        embed = re.sub(r"[^A-Za-z0-9.-]+", "-", self.embed_model)
+        return self.vector_store / f"{self.data_dir.name}__{embed}__{self.chunk_size}-{self.chunk_overlap}"
