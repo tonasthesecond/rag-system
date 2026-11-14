@@ -52,7 +52,7 @@ Everything runs locally. Two separate programs are involved:
 | **Our Python app** | Reads files, chunks, stores vectors (Chroma, embedded in-process), builds prompts, shows UI | Ollama over HTTP |
 
 Chroma is **not** a separate server here: it is a Python library that stores its
-data in a folder (`source_code/vector_store/<collection>/`, a SQLite file plus
+data in a folder (`source_code/vector_store/<index name>/`, a SQLite file plus
 HNSW index files).
 
 ## 2. Indexing: documents → vectors
@@ -114,8 +114,10 @@ for the scores below.
 
 `Chroma.from_documents(...)` stores each chunk's text, metadata and vector in the
 collection, and builds an **HNSW** index (a graph structure for fast approximate
-nearest-neighbour search). It persists to `vector_store/<data folder name>/`,
-so the TXT corpus and the handbook corpus never share an index.
+nearest-neighbour search). It persists to
+`vector_store/<folder>__<embedding model>__<chunk size>-<overlap>/`
+(e.g. `handbooks__nomic-embed-text__1000-200`), so different corpora and
+different chunking experiments never share or overwrite an index.
 
 On the next run, `load_or_build` sees the folder exists and simply opens it — no
 re-embedding. **It does not notice if documents changed**; that is what
@@ -130,24 +132,32 @@ Code: `rag/pipeline.py`. `prepare()` does steps 1–4, `ask()` adds step 5.
 2. **Retrieve** (`retrieve`): Chroma returns the `TOP_K = 5` chunks whose vectors
    are closest to the question's, with their **distance**. Chroma's default
    distance is *squared Euclidean (L2²)*.
-3. **Score**: each distance `d` is converted to a similarity `1 / (1 + d)` (from
-   the course baseline), and the five scores are averaged.
-   If the average is below `SCORE_THRESHOLD = 0.3`, the system takes the
-   **fallback** branch and tells the model to use its general knowledge instead
-   of passages.
-   > Because the vectors are unit length, `d = 2 − 2·cos(θ)`, so `d` is always
-   > between 0 and 4 and in practice ~0.4–1.1. That makes the score ~0.48–0.7,
-   > so a threshold of 0.3 never triggers — see `docs/DECISIONS.md` (D-17).
-4. **Build the prompt** (`build_prompt`): the template in `PROMPT_TEMPLATE` is
+3. **Score**: each distance is converted to a **cosine similarity**. The vectors
+   are unit length, so `d = 2 − 2·cos(θ)` and `cos(θ) = 1 − d/2` (1 = same
+   direction, 0 = unrelated). If even the **best** chunk scores below
+   `SCORE_THRESHOLD = 0.6`, the question is treated as off-topic (**fallback**).
+   0.6 was calibrated on the handbook: every handbook question's best chunk
+   scores ≥ 0.656, clearly off-topic questions ≤ 0.55 (DECISIONS D-17).
+   > The course baseline used `1/(1+d)` averaged over the five chunks with a
+   > threshold of 0.3. That score stays within ~0.48–0.7, so its fallback could
+   > never trigger.
+4. **Build the prompt** (`build_prompt`): the template `PROMPTS[PROMPT_STYLE]` is
    filled with the chunks, each prefixed by its source tag (`[CS_MajorHandbook.pdf p.7]`),
-   separated by `---`, followed by the question and three instructions (use the
-   context; otherwise use general knowledge; be concise).
+   separated by `---`, followed by the question and the instructions. Two styles:
+   - **`strict`** (default): use only the excerpts; if they don't contain the
+     answer reply exactly "I couldn't find that in the documents."; check the
+     excerpt is about exactly what was asked (major vs. minor, course code);
+     cite source tags. In the fallback case the model is **not called at all** —
+     the "not found" sentence is returned directly.
+   - **`baseline`**: the course prompt — use the context if relevant, otherwise
+     general knowledge. In the fallback case the model is told to use general
+     knowledge.
 5. **Generate** (`get_llm` → `OllamaLLM.invoke` or `.stream`): Ollama runs the LLM
    on the prompt. Settings: `TEMPERATURE` (randomness; 0 = always pick the most
    likely token) and `MAX_TOKENS = 512` (hard cap on answer length, sent to
    Ollama as `num_predict`).
 
-`ask()` returns `{answer, sources, avg_score, used_fallback, prompt}`. Every
+`ask()` returns `{answer, sources, top_score, avg_score, used_fallback, prompt}`. Every
 front-end consumes this same structure.
 
 ## 4. Code map
@@ -155,16 +165,16 @@ front-end consumes this same structure.
 ```
 source_code/
 ├── rag/                    ← the library; everything else is a thin front-end
-│   ├── config.py           Settings dataclass; reads env vars / .env; index_dir per corpus
+│   ├── config.py           Settings dataclass; reads env vars / .env; index_dir per corpus+config
 │   ├── loaders.py          txt + pdf loaders, text cleaning, LOADERS registry
 │   ├── store.py            embeddings client, load_or_build (chunk + embed + persist)
-│   └── pipeline.py         prompt template, retrieve, prepare, ask, list_models
+│   └── pipeline.py         prompts (strict/baseline), retrieve, prepare, ask, list_models
 ├── run.py                  CLI: one question → answer + top 3 sources
 ├── app.py                  Streamlit web UI
 ├── evaluate.py             batch evaluation over eval/questions.yaml
 ├── eval/
-│   ├── questions.yaml      25 test questions with reference answers, pages, key facts
-│   └── results/<run>/      summary.md, results.csv/json/jsonl, labels.yaml
+│   ├── questions.yaml      25 test questions (reference, pages, evidence, key facts) + probes
+│   └── results/<run>/      summary.md, results.csv/json/jsonl, labels.yaml, config.json
 ├── run_txt.py              the untouched course baseline (for comparison)
 ├── data/
 │   ├── handbooks/          CS_MajorHandbook.pdf  (Task 2 knowledge source)
@@ -189,15 +199,16 @@ variable (or `source_code/.env`) and falls back to a default:
 | Variable | Default | Meaning |
 |---|---|---|
 | `DATA_DIR` | `data/sample_txt` | folder to index (CLI default; UI picks from a dropdown) |
-| `VECTOR_STORE` | `vector_store` | parent folder for indexes; each corpus gets a subfolder |
+| `VECTOR_STORE` | `vector_store` | parent folder for indexes; one subfolder per corpus + embedding model + chunking |
 | `COLLECTION` | `rag_documents` | Chroma collection name |
-| `CHUNK_SIZE` / `CHUNK_OVERLAP` | 1000 / 200 | chunking (needs `--rebuild` after changing) |
-| `EMBED_MODEL` | `nomic-embed-text` | embedding model (needs `--rebuild` after changing) |
+| `CHUNK_SIZE` / `CHUNK_OVERLAP` | 1000 / 200 | chunking (a new value builds its own index) |
+| `EMBED_MODEL` | `nomic-embed-text` | embedding model (a new model builds its own index) |
 | `LLM_MODEL` | `qwen2.5:0.5b` | answer model (CLI default; UI defaults to 1.5b; Docker to 1.5b) |
 | `TEMPERATURE` | 0.7 | sampling randomness (evaluation forces 0) |
 | `MAX_TOKENS` | 512 | max answer length in tokens |
 | `TOP_K` | 5 | chunks retrieved per question |
-| `SCORE_THRESHOLD` | 0.3 | avg similarity below which the fallback prompt is used |
+| `SCORE_THRESHOLD` | 0.6 | best-chunk cosine similarity below which the question counts as off-topic |
+| `PROMPT_STYLE` | `strict` | `strict` (documents only) or `baseline` (course prompt) |
 | `OLLAMA_URL` | `http://127.0.0.1:11434` | where Ollama is |
 
 Relative paths are resolved against `source_code/`, so commands work from any
@@ -224,6 +235,7 @@ shared across re-runs and browser tabs.
 
 Answer flow: `prepare()` (retrieval, under a spinner) → `st.write_stream(llm.stream(prompt))`
 (tokens appear as they are generated) → sources expander + fallback warning.
+If `prepare()` already produced an answer (strict refusal), it is shown directly.
 History is **displayed** but **not sent to the model** (see D-14).
 
 ### Evaluation — `evaluate.py`
@@ -234,6 +246,10 @@ chunks) and `fact_coverage` (fraction of key
 facts found in the answer, case-insensitive substring match), append a line to
 `results.jsonl`. At the end, write `results.json`, `results.csv`, `summary.md`.
 `--summarize <dir>` regenerates the summary and merges `labels.yaml`.
+`--retrieval-only` skips the LLM entirely and reports page/chunk hit rates plus
+the best-chunk score of the in-scope questions and of the off-/near-topic probes
+in `questions.yaml` — seconds instead of an hour, used for chunking sweeps and
+for calibrating the threshold.
 
 ## 7. Docker topology
 
@@ -271,7 +287,7 @@ Start-up order is enforced with `depends_on` conditions:
 | **L2² distance** | Squared straight-line distance between vectors; Chroma's default |
 | **Cosine similarity** | Angle-based similarity in [-1, 1]; for unit vectors L2² = 2 − 2·cos |
 | **HNSW** | Graph-based index for fast approximate nearest-neighbour search |
-| **Fallback** | Branch where retrieval looks irrelevant and the model is told to use general knowledge |
+| **Fallback** | Branch taken when even the best chunk is below the threshold: strict → refuse; baseline → general knowledge |
 | **Temperature** | Randomness of token sampling; 0 = deterministic |
 | **num_predict** | Ollama's name for the max number of tokens to generate |
 | **Hallucination** | Fluent output that is not supported by the source (or by reality) |

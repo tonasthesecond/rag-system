@@ -2,7 +2,7 @@
 
 Every non-obvious choice made in this project: what was chosen, what else was
 possible, and why. Numbered so the report and commits can refer to them
-("see D-12"). Items marked **open** are known issues not yet acted on.
+("see D-12").
 
 | # | Area | Decision |
 |---|---|---|
@@ -22,9 +22,10 @@ possible, and why. Numbered so the report and commits can refer to them
 | D-14 | UI | Conversation history is shown but not sent to the model |
 | D-15 | Docker | Ollama in its own container + one-shot model-pull job |
 | D-16 | Docker | Documents as bind mount, index as named volume; Podman-compatible |
-| D-17 | Retrieval | **open** — the fallback threshold never triggers |
-| D-18 | Prompt | **open** — the baseline prompt invites general-knowledge answers |
+| D-17 | Retrieval | Cosine similarity of the best chunk, threshold 0.6 (baseline threshold could never trigger) |
+| D-18 | Prompt | **Strict** prompt by default; course prompt kept as an option |
 | D-19 | Repository | What is (not) committed |
+| D-20 | Chunking | Keep 1000/200 after the sweep and the 800/150 experiment |
 
 ---
 
@@ -199,27 +200,53 @@ possible, and why. Numbered so the report and commits can refer to them
   with both; verified with `podman compose` (podman-compose 1.6). Podman's
   default OCI image format ignores `HEALTHCHECK` (harmless warning).
 
-### D-17 · open — the fallback threshold never triggers
-- The baseline converts L2² distance to `1/(1+d)` and falls back below 0.3.
-  Ollama's embeddings are unit length, so `d = 2 − 2·cos` and in practice
-  `d ≈ 0.4–1.1`, giving scores ≈ 0.48–0.7. Measured: "What is the recipe for
-  pho?" scores **0.49**; a real handbook question 0.67. The threshold (0.3) is
-  below both, so the fallback **never** fires — confirmed: 0 fallbacks in 75
-  evaluation answers, including the out-of-scope ones.
-- **Possible fixes** (to try as a Task-2 improvement experiment):
-  1. use cosine similarity directly (`collection_metadata={"hnsw:space": "cosine"}`,
-     score = 1 − d) and set the threshold from data (e.g. ~0.55 between the
-     off-topic and on-topic examples);
-  2. or keep L2 and raise the threshold to ~0.55.
-- Not changed yet so the baseline results stay comparable; a before/after run
-  makes a good report section.
+### D-17 · Relevance: best-chunk cosine similarity, threshold 0.6
+- **Problem found:** the baseline converts L2² distance to `1/(1+d)`, averages
+  the five chunks and falls back below 0.3. Ollama's embeddings are unit length,
+  so `d = 2 − 2·cos` and in practice `d ≈ 0.4–1.1`, giving scores ≈ 0.48–0.7.
+  "What is the recipe for pho?" scored 0.49. The fallback could **never**
+  trigger: 0 fallbacks in 75 baseline answers.
+- **Chosen:** score = cosine similarity (`1 − d/2`, exact for unit vectors, so the
+  ranking and the index are unchanged); fallback when the **best** chunk scores
+  below **0.6**. The best chunk rather than the average, because one strong match
+  is enough to answer from, while the other four chunks are often filler.
+- **Calibration** (`evaluate.py --retrieval-only`, probes in `questions.yaml`):
+  every handbook question's best chunk ≥ 0.656; six clearly off-topic probes
+  (pho, weather, World Cup, capital of France, dorms, add/drop) ≤ 0.55 → 6/6
+  caught, 0/23 handbook questions blocked.
+- **Limit:** four *near-topic* probes (tuition 0.62, department head 0.65,
+  scholarships 0.67, football team 0.69) overlap with real questions (lowest
+  0.656). No threshold separates them; they must be handled by the prompt (D-18).
+- Alternative considered: re-creating the collection with
+  `hnsw:space=cosine`. Unnecessary — for unit vectors L2 and cosine rank
+  identically, so converting the score was enough and avoided re-indexing.
 
-### D-18 · open — the prompt invites general-knowledge answers
-- Instruction 2 of the baseline prompt says "If the context is insufficient, use
-  your general knowledge." For a handbook assistant that's risky: 0.5b used it to
-  invent tuition fees and a department head. A stricter prompt ("answer only from
-  the context; otherwise say you don't know; cite pages") is a cheap, likely
-  improvement worth measuring. Not changed yet for the same reason as D-17.
+### D-18 · Strict prompt by default
+- **Problem:** the course prompt says "If the context is insufficient, use your
+  general knowledge." 0.5b used that to invent tuition fees ("$50,000 at
+  Alibaba Cloud") and a department head.
+- **Strict prompt** (`PROMPTS["strict"]` in `rag/pipeline.py`): answer only from
+  the excerpts; otherwise reply exactly "I couldn't find that in the documents.";
+  check the excerpt matches what was asked (major vs. minor, course code); cite
+  source tags. In the fallback case (D-17) the LLM is not called at all.
+- **Measured** (experiments A and C, same 25 questions, temperature 0):
+
+  | Model | Prompt | Correct | Incomplete | Ambiguous | Incorrect | Out-of-scope invented |
+  |---|---|---|---|---|---|---|
+  | 1.5b | course | 18 | 2 | 3 | 2 | 0/2 |
+  | 1.5b | strict | 18 | 3 | 1 | 3 | 0/2 |
+  | 0.5b | course | 9 | 1 | 3 | 12 | 2/2 |
+  | 0.5b | strict (+800/150) | 10 | 0 | 8 | 7 | 0/2 |
+
+  For 1.5b, accuracy is unchanged: fewer embellished answers, a few more terse
+  ones. For 0.5b, hallucinations on out-of-scope questions disappear and
+  incorrect answers drop from 12 to 7, but a new failure appears — it often
+  prints the "not found" sentence and then answers anyway.
+- **Why default anyway:** for a handbook assistant, never inventing facts is
+  worth more than verbosity, and it gives clean refusals for off-topic questions.
+  Cost: ~10 s higher median latency on 1.5b (longer prompt).
+- The course prompt remains available: `PROMPT_STYLE=baseline`, `--prompt baseline`,
+  or the toggle in the UI.
 
 ### D-19 · What is committed
 - **Committed:** code, configs, the CS handbook PDF, the FUV sample texts,
@@ -228,3 +255,21 @@ possible, and why. Numbered so the report and commits can refer to them
   they're in the original zip); the course assignment PDFs in `docs/` (the
   instructor's material, not ours to redistribute — `.gitignore`d);
   `vector_store/` (rebuilt from documents); `.venv/`; `.env`; videos.
+
+### D-20 · Chunking stays at 1000/200
+- **Retrieval-only sweep** (answer chunk among top 5, 23 answerable questions):
+  1000/200 → 21; **800/150 → 23**; 600/100 → 20; 500/100 → 19; 400/80 → 19;
+  1000/200 with top-k 8 → 21; 500/100 with top-k 8 → 21.
+  Smaller chunks *hurt*: they separate course descriptions from their headings
+  ("Java is the main language" no longer sits next to "CS201"). This contradicted
+  my initial expectation (FINDINGS first draft).
+- **End-to-end (experiment B, strict prompt, 1.5b):** 800/150 fixed both
+  retrieval misses (Core courses, capstone alternative), but the new chunk
+  boundaries changed the context of other questions: CS311's topics were
+  answered with CS313's near-identical description, the minor question was
+  answered with the declaration rule, and the credits answer invented an
+  "80 credit" total. Net: 17 correct vs. 18 at 1000/200.
+- **Chosen:** keep 1000/200. A one-question difference on 25 questions is noise,
+  and 800/150's perfect retrieval score may partly reflect where page 7 happens
+  to be cut. The robust fix is structure-aware chunking (split on headings,
+  prefix chunks with their section title), listed as future work.

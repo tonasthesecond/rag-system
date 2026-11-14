@@ -66,21 +66,41 @@ In the UI, any installed model shows up in the *Answer model* dropdown.
 No rebuild needed — the answer model doesn't touch the index.
 
 ### Change the embedding model or chunking
-These change the vectors, so the index **must** be rebuilt:
+These change the vectors. Each combination gets its own index folder
+(`vector_store/<folder>__<embed model>__<size>-<overlap>/`), built automatically
+on first use, so switching back and forth costs nothing after the first time:
 ```bash
 cd source_code
 ollama pull mxbai-embed-large
 EMBED_MODEL=mxbai-embed-large CHUNK_SIZE=600 CHUNK_OVERLAP=100 \
-    uv run python run.py --data-dir data/handbooks --rebuild -q "..."
+    uv run python run.py --data-dir data/handbooks -q "..."
 ```
 To make it permanent: `cp .env.example .env` and edit `.env`.
-Tip: use a different `VECTOR_STORE=vector_store_mxbai` per experiment so you can
-switch back without re-embedding.
+Check the effect on retrieval in seconds before running the LLM:
+`uv run python evaluate.py --retrieval-only --chunk-size 600 --chunk-overlap 100`.
+If you change `EMBED_MODEL`, re-check the threshold (next section) — different
+models produce different similarity ranges.
 
 ### Change the prompt
-Edit `PROMPT_TEMPLATE` in `source_code/rag/pipeline.py`. It must keep the
-`{context}` and `{question}` placeholders. Applies to CLI, UI and evaluation.
-Re-run the evaluation to measure the effect.
+Prompts live in the `PROMPTS` dict in `source_code/rag/pipeline.py`:
+`strict` (default) and `baseline` (the course prompt). Select with
+`PROMPT_STYLE=...`, `run.py --prompt ...`, `evaluate.py --prompt ...` or the UI
+toggle. To try a new one, add `PROMPTS["mine"] = """..."""` (keep the
+`{context}` and `{question}` placeholders) and add `"mine"` to the `choices` of
+the `--prompt` flags in `run.py` / `evaluate.py`. Re-run the evaluation to
+measure the effect.
+
+### Tune the relevance threshold
+`SCORE_THRESHOLD` (default 0.6) is compared with the cosine similarity of the
+best retrieved chunk. Below it, the question is treated as off-topic. Check a
+value against the test questions and the probe questions in seconds:
+```bash
+cd source_code
+SCORE_THRESHOLD=0.65 uv run python evaluate.py --retrieval-only
+```
+It prints the lowest in-scope score (stay below it, or real questions get
+refused) and how many off-/near-topic probes would be caught. Add your own probes
+under `probes:` in `eval/questions.yaml`.
 
 ### Add a Python dependency
 ```bash
@@ -104,8 +124,15 @@ uv run python evaluate.py --tag myexperiment                       # 3 default m
 uv run python evaluate.py --models qwen2.5:1.5b --tag prompt-v2    # one model
 uv run python evaluate.py --models qwen2.5:1.5b --only req-core careers   # a few questions
 ```
-Rough cost on this laptop (CPU): 0.5b ≈ 10 min, 1.5b ≈ 20 min, 3b ≈ 45 min for
-all 25 questions. Progress prints as `[n/total]`.
+Rough cost on this laptop (CPU): 0.5b ≈ 10 min, 1.5b ≈ 20–25 min, 3b ≈ 45 min
+for all 25 questions. Progress prints as `[n/total]`; answers are saved as they
+arrive in `results.jsonl`, and the settings used in `config.json`.
+
+Retrieval only (no LLM, seconds):
+```bash
+uv run python evaluate.py --retrieval-only                                # current settings
+uv run python evaluate.py --retrieval-only --chunk-size 800 --chunk-overlap 150 --top-k 8
+```
 
 ### Resume after an interruption
 ```bash
@@ -113,8 +140,9 @@ uv run python evaluate.py --resume eval/results/<run-folder>      # same --model
 ```
 
 ### Label answers
-1. Copy `eval/results/20261114-1616-baseline/labels.yaml` into the new run folder
-   and edit it (labels: `correct`, `incomplete`, `ambiguous`, `incorrect`).
+1. Create `labels.yaml` in the run folder — copy one from an existing run as a
+   template (labels: `correct`, `incomplete`, `ambiguous`, `incorrect`, each with
+   a one-line reason).
 2. Merge labels into the CSV and summary:
    ```bash
    uv run python evaluate.py --summarize eval/results/<run-folder>
@@ -124,6 +152,8 @@ uv run python evaluate.py --resume eval/results/<run-folder>      # same --model
 ### Add test questions
 Append to `eval/questions.yaml`: `id`, `category`, `question`, `reference`,
 `pages` (1-based PDF page numbers that contain the answer; `[]` if none),
+`evidence` (a phrase that only occurs in the chunk holding the answer, for the
+chunk-level retrieval metric; `"a|b"` = either),
 `key_facts` (strings the answer must contain; `"a|b"` = either), optional `note`.
 
 ## Docker / Podman
@@ -171,7 +201,8 @@ On Podman the compose provider is `podman-compose`; it was installed with
 | `httpx.ConnectError` / "Could not reach the model" | Ollama isn't running: `sudo systemctl start ollama` (host) or check the `ollama` container. |
 | `model "xyz" not found` | `ollama pull xyz` (or `podman exec rag-system_ollama_1 ollama pull xyz`). |
 | Answers ignore newly added documents | Index is stale → `--rebuild` / *Rebuild index*. |
-| Error about embedding dimension mismatch | You changed `EMBED_MODEL` without rebuilding. Rebuild, or delete `source_code/vector_store/<folder>`. |
+| Error about embedding dimension mismatch | An index was built with a different embedding model under the same name (only possible with an old index layout). Delete `source_code/vector_store/` and let it rebuild. |
+| Real questions answered with "I couldn't find that in the documents." | The best chunk scored below `SCORE_THRESHOLD`; check with `--retrieval-only` and lower it, or the model judged the excerpts insufficient (look at the sources panel). |
 | UI port 8501 already in use | The Docker stack is running; stop it or use `--server.port 8502`. |
 | Very slow answers | Expected on CPU: 1.5b ≈ 45 s, 3b ≈ 110 s. Use a smaller model or lower top-k. First question after idle also loads the model (~5 s). |
 | Answer is a long repetitive wall of text | Shouldn't happen since `MAX_TOKENS=512`; if it does, lower `MAX_TOKENS` or use temperature > 0. |

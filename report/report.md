@@ -204,7 +204,66 @@ a repetition loop and generated 238,039 characters over 44 minutes. I added a
 
 ## 4.4 Improvement experiments
 
-[TO BE COMPLETED WITH EXPERIMENT RESULTS]
+The analysis suggested three changes: a relevance threshold that actually works,
+a prompt that forbids answering from general knowledge, and different chunking.
+
+**Relevance threshold.** Because the embeddings are unit-length, cosine
+similarity can be computed exactly from Chroma's distance as 1 − d/2. I changed
+the score to cosine similarity and the fallback rule to "the *best* chunk scores
+below a threshold", then calibrated the threshold with a retrieval-only check
+(no LLM, a few seconds per run) on the 23 answerable questions and ten probe
+questions. Every handbook question's best chunk scored at least 0.656, and six
+clearly unrelated questions (a pho recipe, the weather, the World Cup) scored at
+most 0.55, so a threshold of 0.6 rejects all six and none of the real
+questions. Four *near-topic* probes — tuition, the department head, scholarships,
+a football team — scored 0.62–0.69, overlapping with real questions: similarity
+alone cannot tell that the handbook does not answer them.
+
+**Strict prompt.** The new prompt tells the model to use only the excerpts, to
+reply with a fixed sentence ("I couldn't find that in the documents.") when they
+do not contain the answer, to check that the excerpt matches what was asked
+(major versus minor, the right course code) and to cite sources. When the
+threshold triggers, the system returns the fixed sentence without calling the
+model.
+
+**Chunking.** A retrieval-only sweep over chunk sizes measured whether the chunk
+containing each answer was retrieved: 21/23 at 1,000/200 characters, 23/23 at
+800/150, and 19–20/23 at 600 characters or less. Smaller chunks were worse
+because they separate course descriptions from the course code they describe.
+
+The end-to-end results (temperature 0, same 25 questions, hand-labelled):
+
+| Run | Model | Prompt | Chunks | Correct | Incompl. | Ambig. | Incorrect | Out-of-scope invented |
+|---|---|---|---|---|---|---|---|---|
+| Baseline | 1.5B | course | 1000/200 | 18 | 2 | 3 | 2 | 0 / 2 |
+| A | 1.5B | strict | 1000/200 | 18 | 3 | 1 | 3 | 0 / 2 |
+| B | 1.5B | strict | 800/150 | 17 | 2 | 3 | 3 | 0 / 2 |
+| Baseline | 0.5B | course | 1000/200 | 9 | 1 | 3 | 12 | 2 / 2 |
+| C | 0.5B | strict | 800/150 | 10 | 0 | 8 | 7 | 0 / 2 |
+
+For the 1.5B model the strict prompt did not change accuracy, but it changed the
+*kind* of errors. Answers no longer contained invented extras — the
+major-declaration answer dropped a false "and fulfil the minor requirements",
+and the advanced-course list lost its spurious "(16 credits)" labels — but some
+became too terse: the minor question was answered with "six courses" without
+naming them. For the 0.5B model the strict prompt removed both hallucinated
+out-of-scope answers and reduced incorrect answers from 12 to 7. It also exposed
+a new failure: in 9 of 25 answers the model printed the refusal sentence and then
+answered anyway, copying the *form* of the instruction rather than following it.
+
+Better retrieval (run B) did not produce more correct answers. The 800-character
+chunks fixed both retrieval failures — the Core courses were now listed and the
+capstone alternative was answered correctly — but moving every chunk boundary
+changed the context of other questions. Most strikingly, the question about
+CS311's topics was answered with the description of CS313, a prerequisite course
+whose description is almost identical. With 25 questions, a difference of one
+answer is within noise.
+
+I adopted the threshold fix and the strict prompt as defaults, since they match
+the baseline's accuracy while never answering from general knowledge, and kept
+1,000/200 chunks. The experiments suggest that the remaining errors need
+structural changes — chunks that follow the document's headings, and tables
+converted to sentences — rather than further tuning of numbers.
 
 # 5. Task 3 — Docker deployment
 
@@ -328,11 +387,19 @@ the effect of fixing them.
 cd source_code
 uv sync                                     # or: pip install -r requirements.txt
 ollama pull nomic-embed-text && ollama pull qwen2.5:1.5b
-uv run python evaluate.py --models qwen2.5:0.5b qwen2.5:1.5b qwen2.5:3b   # baseline
+# baseline prompt, three models (see note below)
+uv run python evaluate.py --prompt baseline --models qwen2.5:0.5b qwen2.5:1.5b qwen2.5:3b
+# experiments A, B, C
+uv run python evaluate.py --prompt strict --models qwen2.5:1.5b
+uv run python evaluate.py --prompt strict --chunk-size 800 --chunk-overlap 150 --models qwen2.5:1.5b
+uv run python evaluate.py --prompt strict --chunk-size 800 --chunk-overlap 150 --models qwen2.5:0.5b
+# retrieval-only checks (threshold calibration, chunk sweep)
 uv run python evaluate.py --retrieval-only --chunk-size 800 --chunk-overlap 150
 uv run streamlit run app.py                 # web interface
 docker compose -f ../docker/docker-compose.yml up --build   # container deployment
 ```
 
-All results, including every answer and its label, are in
-`source_code/eval/results/`.
+All results, including every answer, its label and the settings used, are in
+`source_code/eval/results/`. Note: the baseline run predates the 512-token
+generation cap and the new relevance score; re-running it today applies both,
+so the 0.5B repetition loop cannot recur and fallbacks may differ.

@@ -142,9 +142,14 @@ docker compose -f docker/docker-compose.yml down            # stop (volumes kept
 
 - Text inside images or scanned pages is not extracted (no OCR); page 10 of the CS
   handbook is image-only and is skipped during indexing.
-- Small models (e.g. `qwen2.5:0.5b`) can contradict the retrieved context or mix
-  up related sections (e.g. major vs. minor requirements), and invent answers to
-  questions the handbook doesn't cover.
+- Small models can mix up neighbouring sections (major vs. minor requirements) and
+  misread flattened tables (e.g. course availability). With the course prompt,
+  `qwen2.5:0.5b` also invents answers to questions the handbook doesn't cover; the
+  default strict prompt prevents that, but 0.5b then sometimes prints the "not
+  found" sentence and answers anyway.
+- The relevance threshold rejects clearly off-topic questions (weather, recipes)
+  but not unanswered questions about the same domain (tuition, scholarships);
+  those rely on the prompt.
 - Conversation history is shown in the UI but not sent to the model, so follow-up
   questions that use pronouns ("what does *it* cover?") are answered without context.
 - Answers are only as good as the source: the handbook says completing the program
@@ -152,9 +157,11 @@ docker compose -f docker/docker-compose.yml down            # stop (volumes kept
 - Everything runs on CPU in this setup: median answer time is ~25 s (0.5b),
   ~45 s (1.5b) and ~110 s (3b).
 
-## Evaluation results (baseline)
+## Evaluation results
 
-25 handbook questions, temperature 0, top-k 5, `nomic-embed-text` embeddings:
+25 handbook questions, temperature 0, top-k 5, `nomic-embed-text` embeddings.
+
+**Baseline** (course prompt, 1000/200 chunks):
 
 | Model | Correct / incomplete / ambiguous / incorrect | Answer chunk retrieved | Median latency | Hallucinated on out-of-scope Qs |
 |---|---|---|---|---|
@@ -162,10 +169,24 @@ docker compose -f docker/docker-compose.yml down            # stop (volumes kept
 | `qwen2.5:1.5b` | 18 / 2 / 3 / 2 | 21/23 | 45 s | 0/2 |
 | `qwen2.5:3b` | 19 / 1 / 3 / 2 | 21/23 | 110 s | 0/2 |
 
-Labels are hand-assigned (`labels.yaml` in the run folder). `qwen2.5:1.5b` is the
-default: nearly the 3b's accuracy at ~40% of the latency. Full answers:
-`source_code/eval/results/20261114-1616-baseline/summary.md`; failure analysis:
-[`docs/FINDINGS.md`](docs/FINDINGS.md).
+**Improvement experiments:**
+
+| Run | Model | Prompt | Chunks | Correct / incompl. / ambig. / incorrect | Out-of-scope invented |
+|---|---|---|---|---|---|
+| A | 1.5b | strict | 1000/200 | 18 / 3 / 1 / 3 | 0/2 |
+| B | 1.5b | strict | 800/150 | 17 / 2 / 3 / 3 | 0/2 |
+| C | 0.5b | strict | 800/150 | 10 / 0 / 8 / 7 | 0/2 |
+
+The fixed relevance threshold (best-chunk cosine < 0.6) refuses 6/6 off-topic
+probe questions without calling the model and blocks none of the handbook
+questions.
+
+**Defaults** follow from these runs: `qwen2.5:1.5b` (nearly 3b's accuracy at ~40%
+of the latency), the **strict** prompt (same accuracy as the course prompt for
+1.5b, never answers from general knowledge), 1000/200 chunks (800/150 showed no
+net gain). Labels are hand-assigned (`labels.yaml` in each run folder under
+`source_code/eval/results/`); analysis in [`docs/FINDINGS.md`](docs/FINDINGS.md),
+reasoning in [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
 ## Documentation
 

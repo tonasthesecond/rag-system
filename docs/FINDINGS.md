@@ -134,26 +134,93 @@ larger model grading against the reference) is the scalable alternative.
 - Lists that sit together in one chunk (intermediate courses, CS311 topics).
 - Page-level citations made every one of these failures diagnosable in minutes.
 
-## 8. System-level observations
+## 8. System-level observations (baseline)
 
-- **The fallback branch is dead code** with these embeddings (DECISIONS D-17):
-  0 fallbacks in 75 answers; an off-topic question still scores 0.49 against a
-  threshold of 0.3.
-- **The prompt permits guessing** ("use your general knowledge", D-18). Larger
-  models ignored that and declined; 0.5b took it literally.
+- **The fallback branch was dead code** with these embeddings: 0 fallbacks in 75
+  answers; an off-topic question still scored 0.49 against a threshold of 0.3.
+  Fixed in D-17.
+- **The prompt permits guessing** ("use your general knowledge"). Larger models
+  ignored that and declined; 0.5b took it literally. Addressed in D-18.
 - **Latency is dominated by prompt processing on CPU**: ~5,000 characters of
   context per question. Fewer/shorter chunks would speed things up at some
   recall risk.
 
-## 9. Improvement experiments worth running next
+## 9. Improvement experiments
 
-Each is one config/prompt change plus one evaluation run (use 1.5b to keep it
-~20 min), and gives a before/after table for the report:
+Three changes were tested against the baseline, each on the same 25 questions
+at temperature 0. Folders under `source_code/eval/results/`; labels in each
+folder's `labels.yaml`.
 
-1. **Strict prompt** — answer only from context, say "not in the handbook"
-   otherwise, cite pages. Expect: 0.5b stops hallucinating; maybe fewer padded answers.
-2. **Fix the threshold** (cosine space, threshold ~0.55). Expect: out-of-scope
-   questions hit the fallback.
-3. **Smaller chunks** (e.g. 500/100). Expect: less major/minor mixing; risk of
-   splitting lists.
-4. **Table rows → sentences** for the catalogue pages. Expect: CS210 fixed.
+### 9.1 Retrieval-only checks (no LLM, seconds each)
+
+**Relevance threshold** (cosine similarity of the best chunk, threshold 0.6):
+
+| Probe set | Best-chunk scores | Fallback |
+|---|---|---|
+| 23 handbook questions | min 0.656, median 0.785 | 0/23 ✔ |
+| 6 off-topic (pho, weather, World Cup, France, dorms, add/drop) | 0.41–0.55 | 6/6 ✔ |
+| 4 near-topic (tuition, dept. head, scholarships, football) | 0.62–0.69 | 0/4 ✘ |
+
+Similarity can reject clearly unrelated questions but not unanswered questions
+about the same domain — those need the prompt.
+
+**Chunk size sweep** (answer chunk in top 5, 23 questions): 1000/200 → 21,
+**800/150 → 23**, 600/100 → 20, 500/100 → 19, 400/80 → 19; top-k 8 doesn't rescue
+1000/200 (21). Smaller chunks separate course descriptions from their headings.
+
+### 9.2 End-to-end runs
+
+| Run | Model | Prompt | Chunks | Correct | Incompl. | Ambig. | Incorrect | OOS invented | Median latency |
+|---|---|---|---|---|---|---|---|---|---|
+| baseline | 1.5b | course | 1000/200 | 18 | 2 | 3 | 2 | 0/2 | 45 s |
+| A | 1.5b | strict | 1000/200 | 18 | 3 | 1 | 3 | 0/2 | 55 s |
+| B | 1.5b | strict | 800/150 | 17 | 2 | 3 | 3 | 0/2 | 47 s |
+| baseline | 0.5b | course | 1000/200 | 9 | 1 | 3 | 12 | 2/2 | 24 s |
+| C | 0.5b | strict | 800/150 | 10 | 0 | 8 | 7 | 0/2 | 22 s |
+
+**A — strict prompt (1.5b).** Same number of correct answers. What changed:
+- *Better:* no invented extras — the major-declaration answer drops the false
+  "and fulfil the minor requirements"; the advanced-course list loses the bogus
+  "(16 credits)" tags. Answers are shorter and cite source tags.
+- *Worse:* terseness — the minor answer says "six courses" without listing them;
+  the intermediate list drops one course; for the capstone question it claims
+  the excerpts mention no alternative although they do.
+- Out-of-scope: the exact "I couldn't find that in the documents." sentence.
+
+**B — strict + 800/150 chunks (1.5b).** Better retrieval didn't translate into
+more correct answers:
+- *Fixed:* Core courses (all four named), capstone alternative (correct), major
+  courses (now partially right: CS101/201/302).
+- *Broken:* CS311 topics answered with **CS313's** description (the two course
+  descriptions are near-identical and the new boundaries put CS313 first); the
+  minor question answered with the declaration rule; the credits answer invents
+  "80 credits in total".
+- Lesson: changing chunk boundaries perturbs the context of *every* question;
+  with 25 questions, ±1 correct answer is noise.
+
+**C — strict + 800/150 (0.5b).** The strict prompt fixes the worst 0.5b
+behaviour: no invented tuition or department head, incorrect 12 → 7. But a new
+failure mode appears: 9 of 25 answers start with "I couldn't find that in the
+documents." and then keep going — 7 of them for questions the handbook does
+answer (sometimes correctly) — it copies the
+instruction's sentence instead of applying the rule. Small models follow the
+*form* of instructions more than their logic.
+
+### 9.3 What was adopted
+
+- **Threshold fix + strict prompt** became the defaults (D-17, D-18): equal
+  accuracy for 1.5b, no general-knowledge guessing, instant refusals for
+  off-topic questions.
+- **Chunking stays 1000/200** (D-20): no net gain from 800/150.
+
+### 9.4 Still worth trying
+
+1. **Structure-aware chunking** — split on headings and prefix each chunk with
+   its section title, so "Major Requirements" / "Minor Requirements" travel with
+   their lists. Addresses the dominant failure (§2) without tuning a number.
+2. **Table rows → sentences** for the catalogue pages, e.g. "CS210 Computer
+   Networks — availability: On holding; prerequisite: CS201". Targets §3.
+3. **Few-shot examples in the strict prompt** showing a refusal *and* a normal
+   answer, to stop 0.5b from mixing the two.
+4. **A larger test set or an LLM judge** so that differences of 1–2 answers can
+   be distinguished from noise.
