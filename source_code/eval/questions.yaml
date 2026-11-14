@@ -1,0 +1,256 @@
+# Test questions for the CS Major Handbook chatbot (Task 2).
+#
+# Fields
+#   id          short identifier
+#   category    handbook section / question type
+#   question    what the user asks
+#   reference   ground-truth answer written from the handbook
+#   pages       handbook page(s) that contain the answer (1-based, as in the PDF);
+#               empty for questions the handbook cannot answer
+#   key_facts   short strings that a correct answer must mention (case-insensitive);
+#               used for an automatic, approximate coverage score. Alternatives
+#               are separated by "|" (any one of them counts).
+#   note        why the question is interesting / what could go wrong
+
+handbook: CS_MajorHandbook.pdf
+
+questions:
+  # ---------------------------------------------------------------- requirements
+  - id: req-major-credits
+    category: program requirements
+    question: How many credits are required for the Computer Science major requirements?
+    reference: The major requirements total 56 credits.
+    pages: [2, 7]
+    key_facts: ["56"]
+    note: Simple numeric fact, appears in the table of contents and section heading.
+
+  - id: req-major-courses
+    category: program requirements
+    question: Which specific courses are required for the Computer Science major?
+    reference: >-
+      CS 101 Introduction to Programming, CS 201 Data Structures & Algorithms,
+      CS 203 Computer Organization, MATH 202 Discrete Math, three intermediate
+      courses, CS 302 Algorithms & Theory of Computing, four advanced courses, and
+      Capstone I and II (or two additional intermediate/advanced courses).
+    pages: [7]
+    key_facts: ["CS 101|CS101|Introduction to Programming", "CS 201|CS201|Data Structures",
+                "CS 203|CS203|Computer Organization", "MATH 202|MATH202|Discrete Math",
+                "CS 302|CS302|Theory of Computing", "Capstone"]
+    note: List question; major and minor lists sit on the same page and can get mixed up.
+
+  - id: req-declare-major
+    category: academic policies
+    question: What do I need to complete before I can formally declare Computer Science as my major?
+    reference: At least two Computer Science courses (MATH 202 Discrete Math also counts).
+    pages: [7]
+    key_facts: ["two|2", "MATH 202|Discrete Math"]
+    note: The minor rule (at least ONE course) is a few lines below -> confusion risk.
+
+  - id: req-declare-minor
+    category: academic policies
+    question: How many CS courses must be completed to declare a minor in Computer Science?
+    reference: At least one Computer Science course (MATH 202 Discrete Math also counts).
+    pages: [7]
+    key_facts: ["one|at least 1"]
+    note: Mirror of the previous question.
+
+  - id: req-minor
+    category: program requirements
+    question: What are the requirements for a minor in Computer Science?
+    reference: >-
+      24 credits / six courses: one programming course (CS 101, CS 103 or CS 104),
+      one 100- or 200-level CS course, CS 201 Data Structures & Algorithms, one
+      intermediate course, one 200- or 300-level CS course, and one advanced course.
+    pages: [7]
+    key_facts: ["24|six|6 courses", "CS 201|CS201|Data Structures", "advanced"]
+
+  - id: req-exploratory
+    category: program requirements
+    question: How many exploratory courses can be counted toward the major?
+    reference: Up to 2 of the 6 exploratory courses (8 credits) can be counted toward the major.
+    pages: [7]
+    key_facts: ["2|two", "8 credits|8"]
+
+  - id: req-core
+    category: program requirements
+    question: What are the Core courses in the general curriculum?
+    reference: >-
+      Four Core courses (16 credits): Global Humanities, Modern Vietnamese Culture and
+      Society, Design and Systems Thinking, and one QUEST course (Quantitative
+      Reasoning, Scientific Inquiry, Programming for Data Science and Visualization,
+      or Introduction to Statistics).
+    pages: [6]
+    key_facts: ["Global Humanities", "Modern Vietnamese Culture", "Design and Systems Thinking",
+                "QUEST|Quantitative"]
+
+  - id: req-degree-name
+    category: program requirements
+    question: What degree is awarded after completing the program requirements?
+    reference: >-
+      A Bachelor of Science in Computer Science (B.S. Computer Science). Note: page 6
+      of the handbook mistakenly says "Bachelor of Science in Applied Mathematics" -
+      a copy-paste error in the source document.
+    pages: [1, 6]
+    key_facts: ["Computer Science"]
+    note: Ambiguity trap - the source document itself contains a contradiction.
+
+  # ---------------------------------------------------------------- capstone
+  - id: capstone-eligibility
+    category: academic policies
+    question: What are the eligibility requirements for the CS capstone project?
+    reference: >-
+      A minimum major GPA of 3.5 and approval of a successful application (details in
+      the Computer Science Capstone Handbook).
+    pages: [9]
+    key_facts: ["3.5", "application"]
+
+  - id: capstone-honors
+    category: academic policies
+    question: Do I have to do a capstone to graduate, and what is the alternative?
+    reference: >-
+      No. Doing the capstone (CS 401/402) lets students graduate with honors; the
+      alternative is to take two more intermediate or advanced courses and graduate
+      without honors.
+    pages: [7, 8]
+    key_facts: ["honors", "two"]
+
+  # ---------------------------------------------------------------- courses
+  - id: course-advanced-list
+    category: course offerings
+    question: Can you list some of the advanced courses offered in the CS major?
+    reference: >-
+      Examples: Foundations of Software Engineering, Database Systems, Computer
+      Security, Cloud Computing, Human-Computer Interaction, Computer Graphics, Game
+      Design & Development, Machine Learning, Deep Learning, Advanced Deep Learning,
+      Computer Vision, Natural Language Processing, Optimization, Computational Social
+      Media, Bioinformatics.
+    pages: [8, 9]
+    key_facts: ["Machine Learning", "Database", "Computer Security|Security", "Software Engineering"]
+
+  - id: course-intermediate-list
+    category: course offerings
+    question: What are the intermediate courses in the CS major?
+    reference: >-
+      Sample intermediate courses: Software Construction, Programming Language
+      Paradigms, Operating Systems, Computer Networks, Introduction to Artificial
+      Intelligence.
+    pages: [8]
+    key_facts: ["Software Construction", "Operating Systems", "Computer Networks",
+                "Programming Language"]
+
+  - id: course-prereq-cs311
+    category: course offerings
+    question: What is the prerequisite for CS311 Advanced Deep Learning?
+    reference: CS313 Deep Learning for AI (which itself requires CS208).
+    pages: [13, 18]
+    key_facts: ["CS313|CS 313|Deep Learning for AI"]
+    note: Answer appears in a flattened table row and in the course description.
+
+  - id: course-prereq-cs302
+    category: course offerings
+    question: What are the prerequisites for CS302 Algorithms & Theory of Computing?
+    reference: CS201 Data Structures & Algorithms and MATH202 Discrete Math.
+    pages: [13, 17]
+    key_facts: ["CS201|CS 201", "MATH202|MATH 202|Discrete"]
+
+  - id: course-cs201-language
+    category: course offerings
+    question: Which programming language is mainly used in CS201 Data Structures & Algorithms?
+    reference: Java (with some Python/C++ implementations also introduced).
+    pages: [14]
+    key_facts: ["Java"]
+
+  - id: course-cs207-content
+    category: course offerings
+    question: What do students build in CS207 Software Construction?
+    reference: >-
+      They work in teams to design software with UML (use-case, sequence and class
+      diagrams) and implement the design by building Android applications in Java.
+    pages: [15]
+    key_facts: ["Android", "UML|Java"]
+
+  - id: course-cs210-availability
+    category: course offerings
+    question: How often is CS210 Computer Networks offered?
+    reference: It is listed as "On holding" (not currently scheduled), prerequisite CS201.
+    pages: [13]
+    key_facts: ["holding|hold"]
+    note: Table-only fact; "On holding" is unusual wording that small models may misread.
+
+  - id: course-cs311-topics
+    category: course offerings
+    question: What topics does the Advanced Deep Learning course cover?
+    reference: >-
+      Transfer Learning, GANs, Reinforcement Learning, Attention and Transformer
+      Networks, Graph Neural Networks, plus applications such as NLP, robotics,
+      autonomous driving and time-series.
+    pages: [18]
+    key_facts: ["Transfer Learning", "GAN|Generative Adversarial", "Transformer|Attention",
+                "Graph Neural|GNN"]
+    note: CS313 Deep Learning for AI has a near-identical description -> retrieval confusion risk.
+
+  # ---------------------------------------------------------------- outcomes & careers
+  - id: outcomes-plo
+    category: learning outcomes
+    question: What are the program learning outcomes of the CS major?
+    reference: >-
+      PLO1: understand fundamental CS (core concepts, compare methods, solve problems in
+      theory and systems). PLO2: explain emerging aspects of CS (AI, ML, data science,
+      business analytics, digital media). PLO3: develop real-world applications using
+      knowledge of CS and other disciplines.
+    pages: [5, 11]
+    key_facts: ["fundamental", "emerging", "real-world|applications"]
+
+  - id: outcomes-peo
+    category: learning outcomes
+    question: What are the Program Educational Objectives (PEOs)?
+    reference: >-
+      PEO1: skills/knowledge for industry employment or graduate school. PEO2:
+      professional and personal ethics, collaboration and communication. PEO3:
+      cultivate innovators and thinkers to solve CS-related challenges.
+    pages: [4]
+    key_facts: ["employment|industry", "ethics", "innovators"]
+
+  - id: careers
+    category: career paths
+    question: What jobs have Computer Science graduates gone on to?
+    reference: >-
+      Software engineer, testing engineer, AI engineer, data engineer, business
+      analyst, product owner, product development manager.
+    pages: [5]
+    key_facts: ["Software engineer", "AI engineer", "Data engineer", "Business analyst"]
+
+  - id: grad-programs
+    category: career paths
+    question: Which graduate programs have CS students been admitted to?
+    reference: MSc/PhD Computer Science, MSc Data Science, MSc Bioinformatics (in the US and Europe).
+    pages: [6]
+    key_facts: ["Data Science", "Bioinformatics"]
+
+  - id: teaching-assessment
+    category: teaching & assessment
+    question: How are students assessed in the Computer Science major?
+    reference: >-
+      Active and collaborative learning with continuous formative assessment
+      (discussion, in-class activities, applied learning) plus summative methods;
+      examples include programming tests, quizzes, exams, group presentations, class
+      projects and the capstone.
+    pages: [12]
+    key_facts: ["formative", "exam|quiz", "project"]
+
+  # ---------------------------------------------------------------- out of scope
+  - id: oos-tuition
+    category: out of scope
+    question: How much is the tuition fee for the Computer Science program?
+    reference: Not stated in the handbook - the chatbot should say it does not know.
+    pages: []
+    key_facts: []
+    note: Tests hallucination; the baseline prompt explicitly allows general knowledge.
+
+  - id: oos-department-head
+    category: out of scope
+    question: Who is the head of the Computer Science department?
+    reference: Not stated in the handbook - the chatbot should say it does not know.
+    pages: []
+    key_facts: []
+    note: Tests hallucination of names.

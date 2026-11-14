@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+"""Run the handbook test questions against one or more LLMs and record the results.
+
+For every (model, question) pair this records the answer, the retrieved pages,
+latency, and two automatic signals:
+  * retrieval_hit  - did any expected handbook page appear in the top-k chunks?
+  * fact_coverage  - share of the question's key facts mentioned in the answer
+These are approximate. The final judgement (correct / incomplete / incorrect /
+ambiguous) is made by hand in the `label` column of results.csv.
+
+Example:
+    python evaluate.py --models qwen2.5:0.5b qwen2.5:1.5b qwen2.5:3b
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import time
+from datetime import datetime
+from pathlib import Path
+
+import yaml
+
+from rag.config import PROJECT_ROOT, Settings
+from rag.pipeline import ask, get_llm
+from rag.store import load_or_build
+
+QUESTIONS_FILE = PROJECT_ROOT / "eval" / "questions.yaml"
+RESULTS_DIR = PROJECT_ROOT / "eval" / "results"
+
+
+def fact_coverage(answer: str, key_facts: list[str]) -> float | None:
+    if not key_facts:
+        return None
+    text = answer.lower()
+    hits = sum(any(alt.strip().lower() in text for alt in fact.split("|")) for fact in key_facts)
+    return round(hits / len(key_facts), 2)
+
+
+def retrieval_hit(sources: list[dict], expected_pages: list[int]) -> bool | None:
+    if not expected_pages:
+        return None
+    return any(s.get("page") in expected_pages for s in sources)
+
+
+def mean(values: list[float]) -> float | None:
+    values = [v for v in values if v is not None]
+    return round(sum(values) / len(values), 2) if values else None
+
+
+def write_summary(rows: list[dict], cfg: Settings, path: Path) -> None:
+    models = list(dict.fromkeys(r["model"] for r in rows))
+    lines = [
+        "# Handbook chatbot evaluation",
+        "",
+        f"- Date: {datetime.now():%Y-%m-%d %H:%M}",
+        (f"- Embeddings: `{cfg.embed_model}`, chunk {cfg.chunk_size}/{cfg.chunk_overlap}, "
+        f"top-k {cfg.top_k}, temperature {cfg.temperature}"),
+        f"- Questions: {len(rows) // max(len(models), 1)}",
+        "",
+        "| Model | Retrieval hit rate | Avg fact coverage | Avg latency (s) | Fallbacks |",
+        "|---|---|---|---|---|",
+    ]
+    for m in models:
+        mr = [r for r in rows if r["model"] == m]
+        hits = [r["retrieval_hit"] for r in mr if r["retrieval_hit"] is not None]
+        lines.append(
+            f"| `{m}` | {sum(hits)}/{len(hits)} | {mean([r['fact_coverage'] for r in mr])} | "
+            f"{mean([r['latency_s'] for r in mr])} | {sum(r['used_fallback'] for r in mr)} |"
+        )
+    lines += ["", "## Answers", ""]
+    for qid in dict.fromkeys(r["id"] for r in rows):
+        qr = [r for r in rows if r["id"] == qid]
+        first = qr[0]
+        lines += [
+            f"### `{qid}` — {first['question']}",
+            "",
+            f"*Category:* {first['category']} · *Expected pages:* {first['expected_pages'] or '—'}",
+            "",
+            f"> **Reference:** {first['reference']}",
+            "",
+        ]
+        for r in qr:
+            lines += [
+                (f"**{r['model']}** (retrieved pages {r['retrieved_pages']}, "
+                f"hit={r['retrieval_hit']}, coverage={r['fact_coverage']}, {r['latency_s']}s)"),
+                "",
+                r["answer"].strip(),
+                "",
+            ]
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--models", nargs="+", default=["qwen2.5:0.5b", "qwen2.5:1.5b", "qwen2.5:3b"])
+    parser.add_argument("--data-dir", type=Path, default=PROJECT_ROOT / "data" / "handbooks")
+    parser.add_argument("--temperature", type=float, default=0.0,
+                        help="0 = deterministic, so runs are comparable (default 0)")
+    parser.add_argument("--top-k", type=int)
+    parser.add_argument("--only", nargs="*", help="Run only these question ids")
+    parser.add_argument("--tag", default="", help="Suffix for the results folder name")
+    args = parser.parse_args()
+
+    cfg = Settings()
+    cfg.data_dir = args.data_dir.resolve()
+    cfg.temperature = args.temperature
+    if args.top_k:
+        cfg.top_k = args.top_k
+
+    spec = yaml.safe_load(QUESTIONS_FILE.read_text(encoding="utf-8"))
+    questions = [q for q in spec["questions"] if not args.only or q["id"] in args.only]
+
+    db = load_or_build(cfg)
+    out_dir = RESULTS_DIR / (datetime.now().strftime("%Y%m%d-%H%M") + (f"-{args.tag}" if args.tag else ""))
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    rows: list[dict] = []
+    for model in args.models:
+        cfg.llm_model = model
+        llm = get_llm(cfg)
+        print(f"\n=== {model} ===")
+        for q in questions:
+            start = time.perf_counter()
+            result = ask(q["question"], db, llm, cfg)
+            latency = round(time.perf_counter() - start, 1)
+            row = {
+                "model": model,
+                "id": q["id"],
+                "category": q["category"],
+                "question": q["question"],
+                "reference": " ".join(q["reference"].split()),
+                "expected_pages": q.get("pages", []),
+                "retrieved_pages": [s.get("page") for s in result["sources"]],
+                "retrieval_hit": retrieval_hit(result["sources"], q.get("pages", [])),
+                "fact_coverage": fact_coverage(result["answer"], q.get("key_facts", [])),
+                "avg_score": result["avg_score"],
+                "used_fallback": result["used_fallback"],
+                "latency_s": latency,
+                "answer": result["answer"],
+                "label": "",  # filled in by hand: correct / incomplete / incorrect / ambiguous
+            }
+            rows.append(row)
+            print(f"  {q['id']:<26} hit={row['retrieval_hit']!s:<5} "
+                  f"cov={row['fact_coverage']!s:<5} {latency:>5}s")
+
+    (out_dir / "results.json").write_text(json.dumps(rows, indent=2, ensure_ascii=False))
+    with open(out_dir / "results.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    write_summary(rows, cfg, out_dir / "summary.md")
+    print(f"\nSaved results to {out_dir.relative_to(PROJECT_ROOT)}/")
+
+
+if __name__ == "__main__":
+    main()
