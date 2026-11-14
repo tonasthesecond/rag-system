@@ -41,6 +41,7 @@ source_code/        all application code and data
   data/sample_txt/  FUV sample text corpus
   data/handbooks/   CS major handbook PDF
 docker/             Dockerfile and compose configuration
+docs/               architecture, decisions, guide, findings
 report/             final report (PDF)
 demo_video/         demo videos (or links to them)
 ```
@@ -155,11 +156,23 @@ docker compose -f docker/docker-compose.yml down            # stop (volumes kept
 
 25 handbook questions, temperature 0, top-k 5, `nomic-embed-text` embeddings:
 
-| Model | Expected page retrieved | Key-fact coverage | Median latency | Hallucinated on out-of-scope Qs |
+| Model | Correct / incomplete / ambiguous / incorrect | Answer chunk retrieved | Median latency | Hallucinated on out-of-scope Qs |
 |---|---|---|---|---|
-| `qwen2.5:0.5b` | 23/23 | 0.68 | 24 s | 2/2 |
-| `qwen2.5:1.5b` | 23/23 | 0.80 | 45 s | 0/2 |
-| `qwen2.5:3b` | 23/23 | 0.87 | 110 s | 0/2 |
+| `qwen2.5:0.5b` | 9 / 1 / 3 / 12 | 21/23 | 24 s | 2/2 |
+| `qwen2.5:1.5b` | 18 / 2 / 3 / 2 | 21/23 | 45 s | 0/2 |
+| `qwen2.5:3b` | 19 / 1 / 3 / 2 | 21/23 | 110 s | 0/2 |
 
-`qwen2.5:1.5b` is the default: it gives most of the 3b's accuracy at ~40% of the
-latency. Full answers: `source_code/eval/results/20261114-1616-baseline/summary.md`.
+Labels are hand-assigned (`labels.yaml` in the run folder). `qwen2.5:1.5b` is the
+default: nearly the 3b's accuracy at ~40% of the latency. Full answers:
+`source_code/eval/results/20261114-1616-baseline/summary.md`; failure analysis:
+[`docs/FINDINGS.md`](docs/FINDINGS.md).
+
+## Documentation
+
+| Doc | What's in it |
+|---|---|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the pipeline works end to end, code map, configuration, Docker topology, glossary |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Every design decision with alternatives and reasons, plus known open issues |
+| [`docs/GUIDE.md`](docs/GUIDE.md) | How-tos: add documents, switch models, run/label evaluations, Docker commands, troubleshooting |
+| [`docs/FINDINGS.md`](docs/FINDINGS.md) | Evaluation results and failure analysis |
+| [`docs/SETUP_NOTES.md`](docs/SETUP_NOTES.md) | Development machine and Ollama setup |
