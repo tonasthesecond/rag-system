@@ -176,8 +176,10 @@ podman exec rag-system_app_1 python run.py -q "What GPA is needed for the capsto
 podman exec rag-system_ollama_1 ollama pull qwen2.5:3b
 # Start with a different default model
 LLM_MODEL=qwen2.5:3b MODELS="nomic-embed-text qwen2.5:3b" podman compose -f docker/docker-compose.yml up -d
-# Rebuild only the app image after code changes
-podman compose -f docker/docker-compose.yml up -d --build app
+# Rebuild the app image after code changes and replace the running container.
+# (podman-compose keeps the old container unless told to recreate it;
+#  docker compose recreates automatically, but the flag is harmless there.)
+podman compose -f docker/docker-compose.yml up -d --build --force-recreate --no-deps app
 ```
 
 On Podman the compose provider is `podman-compose`; it was installed with
@@ -208,4 +210,5 @@ On Podman the compose provider is `podman-compose`; it was installed with
 | Answer is a long repetitive wall of text | Shouldn't happen since `MAX_TOKENS=512`; if it does, lower `MAX_TOKENS` or use temperature > 0. |
 | `HEALTHCHECK is not supported for OCI image format` | Harmless Podman warning; build with `--format docker` to keep the healthcheck. |
 | `podman compose` says no provider found | `uv tool install podman-compose`. |
+| Container still behaves like old code after `up --build` | podman-compose didn't recreate it: add `--force-recreate --no-deps app`. |
 | Permission denied on `/app/data` in the container (SELinux) | The `:Z` on the bind mount handles this; if you removed it, add it back. |
