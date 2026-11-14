@@ -25,7 +25,7 @@ from pathlib import Path
 import yaml
 
 from rag.config import PROJECT_ROOT, Settings
-from rag.pipeline import ask, get_llm
+from rag.pipeline import ask, get_llm, retrieve
 from rag.store import load_or_build
 
 QUESTIONS_FILE = PROJECT_ROOT / "eval" / "questions.yaml"
@@ -95,7 +95,8 @@ def write_summary(rows: list[dict], cfg: Settings, path: Path) -> None:
         "",
         f"- Run: `{path.parent.name}`",
         (f"- Embeddings: `{cfg.embed_model}`, chunk {cfg.chunk_size}/{cfg.chunk_overlap}, "
-        f"top-k {cfg.top_k}, temperature {cfg.temperature}"),
+        f"top-k {cfg.top_k}, temperature {cfg.temperature}, prompt `{cfg.prompt_style}`, "
+        f"threshold {cfg.score_threshold}"),
         f"- Questions: {len(rows) // max(len(models), 1)}",
         "",
         ("| Model | Page hit | Chunk hit | Avg fact coverage | Median latency (s) "
@@ -149,6 +150,32 @@ def write_summary(rows: list[dict], cfg: Settings, path: Path) -> None:
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
+def retrieval_report(db, cfg: Settings, questions: list[dict], probes: dict) -> None:
+    """Retrieval-only evaluation: seconds instead of an hour, useful for sweeps."""
+    print(f"chunk {cfg.chunk_size}/{cfg.chunk_overlap}, top-k {cfg.top_k}, "
+          f"threshold {cfg.score_threshold}, index {cfg.index_dir.name}")
+    page_hits, chunk_hits, top_scores = [], [], []
+    for q in questions:
+        sources = retrieve(q["question"], db, cfg)
+        if not q.get("pages"):
+            continue
+        page_hits.append(retrieval_hit(sources, q["pages"]))
+        chunk = evidence_hit(sources, q.get("evidence"))
+        if chunk is not None:
+            chunk_hits.append(chunk)
+        top_scores.append(sources[0]["score"])
+        if chunk is False:
+            print(f"  chunk miss: {q['id']} (pages {[s['page'] for s in sources]})")
+    print(f"page hit {sum(page_hits)}/{len(page_hits)} | chunk hit "
+          f"{sum(chunk_hits)}/{len(chunk_hits)} | in-scope best-chunk score min "
+          f"{min(top_scores):.3f}, median {statistics.median(top_scores):.3f}")
+    for kind, items in probes.items():
+        scores = [retrieve(p, db, cfg)[0]["score"] for p in items]
+        caught = sum(sc < cfg.score_threshold for sc in scores)
+        print(f"probes {kind}: fallback {caught}/{len(items)} | best-chunk scores "
+              + ", ".join(f"{sc:.3f}" for sc in scores))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--models", nargs="+", default=["qwen2.5:0.5b", "qwen2.5:1.5b", "qwen2.5:3b"])
@@ -156,6 +183,12 @@ def main() -> None:
     parser.add_argument("--temperature", type=float, default=0.0,
                         help="0 = deterministic, so runs are comparable (default 0)")
     parser.add_argument("--top-k", type=int)
+    parser.add_argument("--prompt", choices=["baseline", "strict"], default="baseline",
+                        help="Prompt style (default baseline)")
+    parser.add_argument("--chunk-size", type=int)
+    parser.add_argument("--chunk-overlap", type=int)
+    parser.add_argument("--retrieval-only", action="store_true",
+                        help="Only measure retrieval (page/chunk hits, probe scores); no LLM")
     parser.add_argument("--only", nargs="*", help="Run only these question ids")
     parser.add_argument("--tag", default="", help="Suffix for the results folder name")
     parser.add_argument("--summarize", type=Path,
@@ -167,8 +200,13 @@ def main() -> None:
     cfg = Settings()
     cfg.data_dir = args.data_dir.resolve()
     cfg.temperature = args.temperature
+    cfg.prompt_style = args.prompt
     if args.top_k:
         cfg.top_k = args.top_k
+    if args.chunk_size:
+        cfg.chunk_size = args.chunk_size
+    if args.chunk_overlap is not None:
+        cfg.chunk_overlap = args.chunk_overlap
 
     if args.summarize:
         rows = json.loads((args.summarize / "results.json").read_text(encoding="utf-8"))
@@ -182,6 +220,9 @@ def main() -> None:
     questions = [q for q in spec["questions"] if not args.only or q["id"] in args.only]
 
     db = load_or_build(cfg)
+    if args.retrieval_only:
+        retrieval_report(db, cfg, questions, spec.get("probes", {}))
+        return
     if args.resume:
         out_dir = args.resume.resolve()
     else:
@@ -222,6 +263,7 @@ def main() -> None:
                 "retrieval_hit": retrieval_hit(result["sources"], q.get("pages", [])),
                 "evidence_hit": evidence_hit(result["sources"], q.get("evidence")),
                 "fact_coverage": fact_coverage(result["answer"], q.get("key_facts", [])),
+                "top_score": result["top_score"],
                 "avg_score": result["avg_score"],
                 "used_fallback": result["used_fallback"],
                 "latency_s": latency,

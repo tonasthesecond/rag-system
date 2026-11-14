@@ -281,3 +281,21 @@ questions:
     pages: []
     key_facts: []
     note: Tests hallucination of names.
+
+# Out-of-scope probes for calibrating / checking the relevance threshold.
+# Used by `evaluate.py --retrieval-only` (no LLM). "off-topic" ones should trigger
+# the fallback; "near-topic" ones are about Fulbright/CS but not in the handbook,
+# and can only be handled by the prompt (similarity alone can't separate them).
+probes:
+  off-topic:
+    - What is the recipe for pho?
+    - What's the weather in Ho Chi Minh City today?
+    - Who won the 2022 World Cup?
+    - What is the capital of France?
+    - How do I apply for a dorm room?
+    - When is the add/drop deadline this semester?
+  near-topic:
+    - How much is the tuition fee for the Computer Science program?
+    - Who is the head of the Computer Science department?
+    - What scholarships are available for CS students?
+    - Does Fulbright have a football team?
