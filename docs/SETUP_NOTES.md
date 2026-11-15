@@ -19,5 +19,5 @@ Machine used for development and all experiments in this project.
   - `gemma3:4b` (3.4 GB)
   - `qwen3:30b-a3b-instruct-2507-q4_K_M` (18 GB, mixture-of-experts, ~3B active params)
 
-Still to pull for the course baseline: `nomic-embed-text` (embeddings) and
-`qwen2.5:0.5b` (answer model), as listed in the assignment instructions.
+- Pulled for the project: `nomic-embed-text` (embeddings) and `qwen2.5:0.5b`,
+  `qwen2.5:1.5b`, `qwen2.5:3b` (answer models compared in the evaluation).

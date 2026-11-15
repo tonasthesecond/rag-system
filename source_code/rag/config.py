@@ -32,8 +32,8 @@ class Settings:
     chunk_size: int = field(default_factory=lambda: int(_env("CHUNK_SIZE", "1000")))
     chunk_overlap: int = field(default_factory=lambda: int(_env("CHUNK_OVERLAP", "200")))
     embed_model: str = field(default_factory=lambda: _env("EMBED_MODEL", "nomic-embed-text"))
-    llm_model: str = field(default_factory=lambda: _env("LLM_MODEL", "qwen2.5:0.5b"))
-    temperature: float = field(default_factory=lambda: float(_env("TEMPERATURE", "0.7")))
+    llm_model: str = field(default_factory=lambda: _env("LLM_MODEL", "qwen2.5:1.5b"))
+    temperature: float = field(default_factory=lambda: float(_env("TEMPERATURE", "0.2")))
     # Hard cap on generated tokens. Without it a small model can fall into a
     # repetition loop and generate for tens of minutes (observed with 0.5b).
     max_tokens: int = field(default_factory=lambda: int(_env("MAX_TOKENS", "512")))

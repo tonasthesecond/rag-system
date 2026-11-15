@@ -48,9 +48,6 @@ RULES:
 
 ANSWER:""".replace("{not_found}", NOT_FOUND)
 
-# Kept for backwards compatibility with code that imports it.
-PROMPT_TEMPLATE = PROMPTS["baseline"]
-
 
 def list_models(cfg: Settings) -> list[str]:
     """Names of models installed in the Ollama server (excluding embedding models)."""

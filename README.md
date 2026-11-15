@@ -24,9 +24,9 @@ Question ───────────────────────�
 | 2 | CS handbook chatbot + evaluation | ✅ done (results in `source_code/eval/results/`) |
 | 3 | Docker deployment | ✅ done |
 | 4 | Web UI (Streamlit) | ✅ done |
-| 5 | Report | ⏳ |
-| 6 | Video demos | ⏳ |
-| 7 | GitHub + README | ⏳ |
+| 5 | Report | 📝 draft in `report/` (name, student ID and repo URL still to fill in) |
+| 6 | Video demos | ⏳ (recording plan in `demo_video/SCRIPTS.md`) |
+| 7 | GitHub + README | 📝 README done; repository not yet published |
 
 ## Repository layout
 

@@ -203,8 +203,8 @@ variable (or `source_code/.env`) and falls back to a default:
 | `COLLECTION` | `rag_documents` | Chroma collection name |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | 1000 / 200 | chunking (a new value builds its own index) |
 | `EMBED_MODEL` | `nomic-embed-text` | embedding model (a new model builds its own index) |
-| `LLM_MODEL` | `qwen2.5:0.5b` | answer model (CLI default; UI defaults to 1.5b; Docker to 1.5b) |
-| `TEMPERATURE` | 0.7 | sampling randomness (evaluation forces 0) |
+| `LLM_MODEL` | `qwen2.5:1.5b` | answer model (CLI, UI and Docker) |
+| `TEMPERATURE` | 0.2 | sampling randomness (evaluation forces 0) |
 | `MAX_TOKENS` | 512 | max answer length in tokens |
 | `TOP_K` | 5 | chunks retrieved per question |
 | `SCORE_THRESHOLD` | 0.6 | best-chunk cosine similarity below which the question counts as off-topic |
