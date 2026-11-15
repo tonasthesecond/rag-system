@@ -34,20 +34,27 @@ def corpora() -> list[str]:
     )
 
 
-@st.cache_resource(show_spinner="Loading vector index (first run embeds every document)...")
-def get_db(corpus: str, embed_model: str, ollama_url: str, chunk_size: int, chunk_overlap: int,
-           _rebuild_token: int = 0):
+def corpus_settings(corpus: str) -> Settings:
     cfg = Settings()
     cfg.data_dir = DATA_ROOT / corpus
-    cfg.embed_model, cfg.ollama_url = embed_model, ollama_url
-    cfg.chunk_size, cfg.chunk_overlap = chunk_size, chunk_overlap
-    return load_or_build(cfg, rebuild=_rebuild_token > 0)
+    return cfg
+
+
+@st.cache_resource(show_spinner="Loading vector index (first run embeds every document)...")
+def get_db(corpus: str):
+    return load_or_build(corpus_settings(corpus))
+
+
+def rebuild(corpus: str) -> None:
+    with st.spinner("Re-indexing documents..."):
+        load_or_build(corpus_settings(corpus), rebuild=True)
+    get_db.clear()
+    st.rerun()
 
 
 # ------------------------------------------------------------------ sidebar
 cfg = Settings()
 st.session_state.setdefault("messages", [])
-st.session_state.setdefault("rebuild", 0)
 
 with st.sidebar:
     st.title("📘 Handbook Assistant")
@@ -58,13 +65,13 @@ with st.sidebar:
     corpus = st.selectbox("Document collection", options, index=default)
 
     models = list_models(cfg) or [cfg.llm_model]
-    preferred = "qwen2.5:1.5b" if "qwen2.5:1.5b" in models else cfg.llm_model
     cfg.llm_model = st.selectbox(
-        "Answer model", models, index=models.index(preferred) if preferred in models else 0
+        "Answer model", models,
+        index=models.index(cfg.llm_model) if cfg.llm_model in models else 0,
     )
     with st.expander("Retrieval settings"):
         cfg.top_k = st.slider("Chunks to retrieve (top-k)", 1, 10, cfg.top_k)
-        cfg.temperature = st.slider("Temperature", 0.0, 1.0, 0.2, 0.1)
+        cfg.temperature = st.slider("Temperature", 0.0, 1.0, cfg.temperature, 0.1)
         cfg.score_threshold = st.slider("Min. best-chunk relevance (cosine)", 0.0, 1.0,
                                         cfg.score_threshold, 0.05)
         cfg.prompt_style = st.radio(
@@ -79,13 +86,9 @@ with st.sidebar:
         if uploads and st.button("Save & re-index", use_container_width=True):
             for f in uploads:
                 (DATA_ROOT / corpus / Path(f.name).name).write_bytes(f.getvalue())
-            st.session_state.rebuild += 1
-            st.cache_resource.clear()
-            st.rerun()
+            rebuild(corpus)
         if st.button("Rebuild index", use_container_width=True):
-            st.session_state.rebuild += 1
-            st.cache_resource.clear()
-            st.rerun()
+            rebuild(corpus)
 
     if st.button("🗑️ Clear conversation", use_container_width=True):
         st.session_state.messages = []
@@ -95,10 +98,7 @@ with st.sidebar:
     st.caption("Indexed files: " + ", ".join(files))
 
 cfg.data_dir = DATA_ROOT / corpus
-db = get_db(corpus, cfg.embed_model, cfg.ollama_url, cfg.chunk_size, cfg.chunk_overlap,
-            st.session_state.rebuild)
-# A rebuild only has to happen once; later cache hits should reuse the new index.
-st.session_state.rebuild = 0
+db = get_db(corpus)
 
 
 # ------------------------------------------------------------------ chat
@@ -147,7 +147,8 @@ if question:
             result = prepare(question, db, cfg)
         try:
             if result["answer"] is not None:  # strict mode refused without calling the LLM
-                answer = st.write(result["answer"]) or result["answer"]
+                answer = result["answer"]
+                st.markdown(answer)
             else:
                 answer = st.write_stream(get_llm(cfg).stream(result["prompt"]))
         except (httpx.HTTPError, ollama.ResponseError) as exc:  # server down, model missing
