@@ -26,3 +26,6 @@ final-project.zip
 
 # Course-provided assignment brief (kept local, not redistributed)
 docs/assignment*.pdf
+
+# Submission zips built by package.sh
+dist/
