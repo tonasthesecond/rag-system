@@ -1,4 +1,4 @@
-# Hand labels - experiment A: strict prompt, chunk 1000/200, qwen2.5:1.5b. DRAFT - review.
+# Hand labels - experiment A: strict prompt, chunk 1000/200, qwen2.5:1.5b.
 # Labels as in the baseline labels.yaml (correct / incomplete / ambiguous / incorrect).
 req-major-credits: {qwen2.5:1.5b: [correct, "56 credits, with citation."]}
 req-major-courses: {qwen2.5:1.5b: [incorrect, "CS101, CS201 and CS104 - CS104 is not required; misses CS203, MATH202, CS302 etc. Major-list chunk still not retrieved."]}

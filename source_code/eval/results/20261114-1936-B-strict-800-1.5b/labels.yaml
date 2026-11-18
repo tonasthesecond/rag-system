@@ -1,4 +1,4 @@
-# Hand labels - experiment B: strict prompt, chunk 800/150, qwen2.5:1.5b. DRAFT - review.
+# Hand labels - experiment B: strict prompt, chunk 800/150, qwen2.5:1.5b.
 req-major-credits: {qwen2.5:1.5b: [ambiguous, "Says 56, then invents a total of 80 credits (adds the minor's 24) and a 32/48 core/elective split."]}
 req-major-courses: {qwen2.5:1.5b: [incomplete, "CS101, CS201, CS302 are right (major list now retrieved) but CS203, MATH202, intermediate/advanced courses and capstone are missing."]}
 req-declare-major: {qwen2.5:1.5b: [correct, "Exact rule."]}
@@ -21,6 +21,6 @@ outcomes-plo: {qwen2.5:1.5b: [ambiguous, "Mixes lists: presents Core LO 3 ('form
 outcomes-peo: {qwen2.5:1.5b: [correct, "PEO1-3 verbatim."]}
 careers: {qwen2.5:1.5b: [correct, "All seven roles."]}
 grad-programs: {qwen2.5:1.5b: [correct, "Right three programs."]}
-teaching-assessment: {qwen2.5:1.5b: [correct, "Right; wrongly adds that summative assessment isn't mentioned (minor)."]}
+teaching-assessment: {qwen2.5:1.5b: [ambiguous, "Right, but wrongly adds that summative assessment is not specified."]}
 oos-tuition: {qwen2.5:1.5b: [correct, "Exact 'not found' sentence."]}
 oos-department-head: {qwen2.5:1.5b: [correct, "Exact 'not found' sentence."]}

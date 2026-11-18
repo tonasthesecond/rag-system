@@ -1,390 +1,150 @@
 ---
 title: "Building and Improving a Local Retrieval-Augmented Generation System"
-subtitle: "CS311 Advanced Deep Learning — Final Project Report"
-author: "[Your name] — [Student ID]"
+subtitle: "CS311 Advanced Deep Learning: Final Project Report"
+author: "Doan Ngoc Khanh Quan, 240069"
 date: "November 2026"
 ---
 
 # 1. Introduction
 
-Large language models answer fluently but have no access to private or recent
-documents, and when they don't know something they tend to produce a plausible
-answer anyway. Retrieval-Augmented Generation (RAG) addresses both problems by
-retrieving relevant passages from a document collection and placing them in the
-prompt, so that the model answers from evidence rather than memory.
+Language models answer fluently, but they cannot see private documents, and when they don't know something they tend to make up a believable answer. Retrieval-Augmented Generation (RAG) helps with both problems: before the model answers, the system looks up the most relevant passages from a set of documents and gives them to the model, so the answer is based on evidence instead of memory.
 
-This project extends the course's baseline RAG script into a complete local
-question-answering system over the Fulbright **B.S. Computer Science Major
-Handbook**. Everything runs on a laptop without a GPU: Ollama serves the
-embedding model (`nomic-embed-text`) and the answer models (Qwen2.5 0.5B, 1.5B
-and 3B), Chroma stores the vectors, and a Streamlit web interface provides the
-chat front-end. The system is packaged with Docker Compose.
+This project turns the course's basic RAG script into a complete question-answering system for the Fulbright **B.S. Computer Science Major Handbook**. It runs locally on a laptop with no graphics card, using Ollama for the models, Chroma for storing the documents and a Streamlit web page for the chat. It is packaged with Docker Compose so it can be started on another machine with one command.
 
-The work covers the four implementation tasks — PDF support (Task 1), a handbook
-chatbot with a systematic evaluation (Task 2), Docker deployment (Task 3) and a
-web interface (Task 4) — plus a set of improvement experiments motivated by the
-evaluation. The main findings are that (i) model size matters a great deal at the
-small end (0.5B → 1.5B doubles the number of correct answers) and much less
-beyond it, (ii) most errors are *generation* errors on correctly retrieved text,
-but the two hardest questions failed because of *chunking*, and (iii) several
-weaknesses inherited from the baseline — a relevance threshold that could never
-trigger and a prompt that invites guessing — were responsible for the worst
-behaviour of the smallest model.
+The work covers the four required tasks: PDF support (Task 1), a handbook chatbot with an evaluation (Task 2), Docker deployment (Task 3) and a web interface (Task 4). I also ran a few improvement experiments based on what the evaluation showed. The main findings are:
 
-Source code, evaluation data and documentation are in the GitHub repository:
-**[repository URL]**.
+- Model size matters a lot at the small end. The middle model gave about twice as many correct answers as the smallest, and the largest added little.
+- Most mistakes were the model misreading text that was found correctly. The hardest questions failed because the right text was never shown to the model, due to how the documents were cut into pieces.
+- Two weaknesses inherited from the starting script caused the worst behavior of the smallest model: a safety check that never triggered, and a prompt that invited guessing.
 
-# 2. System architecture
+The code, evaluation data and documentation are at **https://github.com/tonasthesecond/rag-system**
 
-## 2.1 Pipeline
+# 2. How the system works
 
-The system has two phases. **Indexing** happens once per document collection:
-files are loaded, their text is extracted and split into overlapping chunks,
-each chunk is converted into a 768-dimensional embedding vector by
-`nomic-embed-text`, and the vectors are stored in a persistent Chroma
-collection. **Answering** happens for every question: the question is embedded
-with the same model, the five nearest chunks are retrieved, a prompt is built
-from an instruction template, the chunks (each tagged with its source file and
-page) and the question, and the prompt is sent to the answer model.
+The system has two phases. In **indexing**, the documents are read and split into small overlapping pieces called chunks. Each chunk is turned into a list of numbers (an embedding) that captures its meaning, and these are stored in a database. In **answering**, the question is turned into numbers the same way, the five closest chunks are retrieved, and a prompt is built from instructions, those chunks (labelled with file and page) and the question. The prompt is sent to the answer model.
 
 ```
-PDF/TXT ─► extract text ─► chunk ─► embed ─► Chroma
-                                              │ top-5
-question ─► embed ─► nearest-neighbour search ┘
+PDF/TXT ─► read text ─► split into chunks ─► embed ─► Chroma database
+                                                          │ best 5 chunks
+question ─► embed ─► find closest chunks ─────────────────┘
                               │
-            prompt(instructions + chunks + question) ─► Qwen2.5 ─► answer + cited pages
+        prompt (instructions + chunks + question) ─► Qwen2.5 ─► answer + cited pages
 ```
 
-## 2.2 Components and code structure
+I used Ollama to run both the embedding model (`nomic-embed-text`) and three answer models from the same family (Qwen2.5 0.5B, 1.5B and 3B), so size is the only difference between them. The starting point was a single script, which I reorganized into a small `rag/` package shared by a command-line tool, the web page and the evaluation script. This way the system I evaluated is exactly the one people use. All settings can be changed through environment variables, which is also how Docker configures the app. Everything runs on the processor, so the models are slow, and this shaped many decisions.
 
-| Component | Choice | Notes |
-|---|---|---|
-| Model server | Ollama 0.12.11 | Serves both embedding and answer models over HTTP |
-| Embeddings | `nomic-embed-text` | 768-d, unit-length vectors |
-| Vector store | Chroma (embedded) | HNSW index persisted to disk |
-| Answer models | Qwen2.5 0.5B / 1.5B / 3B | Same family, so size is the only variable |
-| PDF extraction | pypdf | Pure Python, one document per page |
-| Web UI | Streamlit | Chat layout, streamed answers |
-| Deployment | Docker Compose | Tested with Podman |
+# 3. Task 1: PDF support
 
-The baseline was a single script. I refactored it into a small `rag/` package
-(configuration, loaders, store, pipeline) used by three thin front-ends: a
-command-line tool, the web interface, and an evaluation script. This guarantees
-that the system I evaluated is exactly the system users interact with, and that a
-fix in the pipeline reaches every front-end. All settings (models, chunk size,
-top-k, thresholds, prompt style) are read from environment variables, which is
-also how Docker configures the application.
+The starting script could only read `.txt` files. I added a PDF reader, so one folder can mix both types. Three details mattered:
 
-Development ran on an Intel i7-1365U laptop with 30 GB of RAM and no discrete
-GPU, so all inference is CPU-bound. This constraint shaped several decisions,
-notably the choice of small models and the emphasis on latency.
+1. **One document per page.** Each page keeps its page number, so every answer can cite a source such as "CS_MajorHandbook.pdf p.7". This makes answers checkable and made the evaluation possible.
+2. **Cleaning the text.** The PDF stores some letter pairs, like "fi", as a single special character, which the embedding model treats differently. I normalize every page so these match.
+3. **Pages without text.** One page of the handbook is only an image. The loader skips such pages and reports them. Recovering them would need OCR.
 
-# 3. Task 1 — PDF support
+I also fixed a quiet problem: the starting script reused an old database whenever its folder existed, even if the documents had changed. Databases are now stored per document set and configuration, and can be rebuilt on request.
 
-The baseline only read `.txt` files. I added a PDF loader based on pypdf and a
-small registry that dispatches files to loaders by extension, so a folder can mix
-PDF and text documents.
-
-Three details turned out to matter:
-
-1. **One document per page.** Each PDF page becomes a separate document carrying
-   its page number. Chunks inherit it, so every answer can cite
-   "CS_MajorHandbook.pdf p.7". This makes answers verifiable and enabled the
-   retrieval metrics used in the evaluation.
-2. **Text normalisation.** The handbook stores ligatures such as "ﬁ" as single
-   glyphs, which the embedding model tokenises differently from "fi". Unicode
-   NFKC normalisation and whitespace clean-up are applied to every page.
-3. **Image-only pages.** pypdf only reads text stored as text. Page 10 of the
-   handbook contains no extractable text (it is likely a diagram), so the loader
-   skips pages with fewer than 20 characters and reports them. Recovering such
-   content would require OCR.
-
-I also fixed a baseline behaviour that would have caused confusing results: the
-original code reused an existing vector store whenever its folder existed, even
-if the documents had changed. Indexes are now stored per document collection and
-configuration, and can be rebuilt explicitly (`--rebuild` in the CLI, a button in
-the UI). The CS handbook produces 64 chunks with the baseline chunk settings.
-
-# 4. Task 2 — Handbook chatbot and evaluation
+# 4. Task 2: Handbook chatbot and evaluation
 
 ## 4.1 Method
 
-I selected the Computer Science handbook (19 pages) and wrote **25 test
-questions** after reading it in full. They cover program requirements (credits,
-required courses, the minor, Core curriculum), academic policies (declaring a
-major or minor, capstone eligibility), course offerings (lists, prerequisites,
-content, availability), learning outcomes and objectives, career paths and
-assessment. Two questions — tuition fees and the department head — are **out of
-scope**, to test whether the system admits when the handbook has no answer.
-Several questions were deliberately difficult: the major and minor requirements
-sit next to each other on the same page, one fact appears only in a table, and
-one question touches an error in the handbook itself.
+I chose the Computer Science handbook and wrote 25 test questions after reading it fully, covering requirements, policies, course details, learning goals and careers. Two questions, about tuition and the department head, are **not answered anywhere in the handbook**, to test whether the system admits when it doesn't know. Several others were hard on purpose: the major and minor requirements sit side by side on one page, one fact appears only in a table, and one question touches a mistake in the handbook itself.
 
-Each question has a reference answer, the page(s) containing it, an *evidence*
-phrase that occurs only in the passage holding the answer, and a list of key
-facts. The evaluation script runs every question against each model at
-temperature 0 (so differences come from the models, not sampling) and records:
-
-- **Page hit / chunk hit** — whether a retrieved chunk came from an expected
-  page, and whether a retrieved chunk actually contained the evidence phrase;
-- **Key-fact coverage** — the share of key facts found in the answer;
-- **Latency**;
-- a **hand label** for each answer: *correct*, *incomplete* (true but missing
-  key parts), *ambiguous* (mixes correct and wrong statements, or faithfully
-  repeats an error in the source) or *incorrect*.
+Each question has a reference answer, the page it is on and a list of key facts. I asked every question to each model with randomness switched off, then read every answer and labelled it **correct**, **incomplete** (true but missing key parts), **ambiguous** (mixes right and wrong, or repeats a mistake in the source) or **incorrect**.
 
 ## 4.2 Results
 
-| Model | Corr. | Inc. | Amb. | Wrong | Chunk hit | Fact cov. | Median latency |
-|---|---|---|---|---|---|---|---|
-| Qwen2.5 0.5B | 9 | 1 | 3 | 12 | 21/23 | 0.68 | 24 s |
-| Qwen2.5 1.5B | 18 | 2 | 3 | 2 | 21/23 | 0.80 | 45 s |
-| Qwen2.5 3B | 19 | 1 | 3 | 2 | 21/23 | 0.87 | 110 s |
+| Model | Correct | Incorrect | Speed per answer |
+|---|---|---|---|
+| Qwen2.5 0.5B | 9 | 12 | under half a minute |
+| Qwen2.5 1.5B | 18 | 2 | under a minute |
+| Qwen2.5 3B | 19 | 2 | almost two minutes |
 
-*Baseline configuration: course prompt, chunks of 1,000 characters with 200
-overlap, top-5 retrieval. Corr./Inc./Amb./Wrong = correct, incomplete, ambiguous,
-incorrect.*
-
-Going from 0.5B to 1.5B doubles the number of correct answers; going from 1.5B to
-3B adds one more at 2.5 times the latency. On the two out-of-scope questions the
-0.5B model invented answers, while 1.5B and 3B both said the handbook did not
-contain the information. I therefore made 1.5B the default model.
+The smallest model was fast but often wrong, and on the two unanswerable questions it invented answers. The middle model was a big improvement, and the largest added one correct answer at more than twice the waiting time. Both larger models correctly said the handbook did not contain the missing information. I made the middle model the default.
 
 ## 4.3 Examples and analysis
 
-**Correct answers.** Direct factual look-ups in prose were reliable for the 1.5B
-and 3B models: the prerequisite of CS311 (CS313), the main language of CS201
-(Java), what students build in CS207 (Android applications in Java, designed
-with UML), the capstone eligibility rule (major GPA of at least 3.5 and an
-approved application), the program educational objectives, the career paths and
-the graduate programs alumni were admitted to.
+**Correct answers.** Simple look-ups in ordinary text worked well for the two larger models. They correctly gave the prerequisite of CS311 (CS313), the main language of CS201 (Java), what students build in CS207 (Android apps designed with UML), the rules for starting the capstone, the program's goals, career paths and graduate programs.
 
-**Incorrect — retrieval failure.** Asked *"Which specific courses are required
-for the Computer Science major?"*, all three models listed the **minor's**
-six-course structure. The page-level metric suggested retrieval had succeeded,
-but at chunk level it had not: page 7 is split into two chunks, and the one
-holding the major's course list begins with unrelated text about exploratory and
-compulsory courses, which dilutes its embedding. It did not appear even in the
-top eight results, while the chunk that mentions "declare Computer Science as
-their major" — followed by the minor requirements — ranked first. The models
-answered from the only course list they were shown. The question about Core
-courses failed the same way (*incomplete*): the course names are in a different
-chunk from the descriptive paragraph that was retrieved.
+**Incorrect: the right text was never found.** Asked which courses the major requires, all three models described the **minor's** courses instead. The right page was retrieved, but it is split into two chunks, and the one holding the major's list starts with unrelated text, which weakens its match to the question. A neighboring chunk about declaring a major, followed by the minor's requirements, ranked much higher.
 
-**Incorrect — misreading a table.** pypdf flattens tables into lines such as
-`CS210 Computer Networks On holding CS201`, separated from their column headers.
-Asked how often CS210 is offered, the 1.5B model answered "once a year" — the
-value in the neighbouring rows. The 3B model quoted "On holding" correctly but
-then explained that this "typically means once a year" (*ambiguous*). Similar
-leakage decorated otherwise correct course lists with "(CS TBA)" or "(16
-credits)" taken from other tables.
+**Incomplete: only part of the answer was shown.** Asked for the Core courses, the middle and largest models said there are four and described what they are for, but named none, because the chunk with the names was not retrieved. With the strict prompt, the middle model listed only four of the five intermediate courses.
 
-**Incorrect — reasoning on correct context.** The 3B model quoted the rule for
-declaring a minor exactly ("at least one Computer Science course") and then
-concluded that a student must complete "at least seven CS courses", adding the
-six minor courses to it. The key-fact score rated this answer 1.0, which
-illustrates why automatic substring metrics are not enough.
+**Incorrect: tables were misread.** The PDF reader flattens tables into plain lines, away from their column headings. Asked how often CS210 is offered, the middle model said "once a year", taken from a neighboring row. The largest model quoted the table correctly ("On holding") and then said this "typically means once a year".
 
-**Incorrect — hallucination.** For the tuition question the 0.5B model answered:
-*"The tuition fee for the Computer Science program at Alibaba Cloud is $50,000
-per year. This information can be found in the 'Major Outline' section of the
-CS_MajorHandbook.pdf document."* It also named an invented "Professor Xie" as
-department head. Both answers cite the handbook for facts it does not contain.
-The baseline prompt explicitly tells the model to use its general knowledge when
-the context is insufficient, and the smallest model took that literally.
+**Incorrect: a wrong conclusion from correct text.** The largest model quoted the rule for declaring a minor exactly ("at least one Computer Science course") and then concluded that students need seven, by adding the minor's six courses on top. My automatic score rated this answer as perfect, which shows why it cannot replace reading the answers.
 
-**Ambiguous — faithful to a wrong source.** The handbook's degree-requirements
-section states that completing the program awards "a Bachelor of Science in
-Applied Mathematics", evidently copied from another handbook. All three models
-repeated it. RAG makes models faithful to retrieved text, which normally reduces
-hallucination but also propagates errors in the source.
+**Incorrect: invented facts.** For the tuition question, the smallest model said: *"The tuition fee for the Computer Science program at Alibaba Cloud is $50,000 per year. This information can be found in the 'Major Outline' section of the CS_MajorHandbook.pdf document."* It also invented a "Professor Xie" as department head. The starting prompt tells the model to use its own knowledge when the text is not enough, and this model took that too literally.
 
-**Degenerate output.** On the learning-outcomes question the 0.5B model fell into
-a repetition loop and generated 238,039 characters over 44 minutes. I added a
-512-token generation limit to prevent this.
+**Ambiguous: faithful to a mistake.** The handbook says that finishing the program awards "a Bachelor of Science in Applied Mathematics", which looks copied from another handbook by accident. All three models repeated it. RAG keeps models close to the text, which reduces made-up answers but also passes along errors in the source.
+
+The smallest model also once got stuck repeating itself for about 44 minutes, so I added a limit on answer length.
 
 ## 4.4 Improvement experiments
 
-The analysis suggested three changes: a relevance threshold that actually works,
-a prompt that forbids answering from general knowledge, and different chunking.
+The analysis pointed to three fixes.
 
-**Relevance threshold.** Because the embeddings are unit-length, cosine
-similarity can be computed exactly from Chroma's distance as 1 − d/2. I changed
-the score to cosine similarity and the fallback rule to "the *best* chunk scores
-below a threshold", then calibrated the threshold with a retrieval-only check
-(no LLM, a few seconds per run) on the 23 answerable questions and ten probe
-questions. Every handbook question's best chunk scored at least 0.656, and six
-clearly unrelated questions (a pho recipe, the weather, the World Cup) scored at
-most 0.55, so a threshold of 0.6 rejects all six and none of the real
-questions. Four *near-topic* probes — tuition, the department head, scholarships,
-a football team — scored 0.62–0.69, overlapping with real questions: similarity
-alone cannot tell that the handbook does not answer them.
+**A relevance check that works.** The starting script was meant to refuse when the retrieved text looked unrelated, but its scoring gave almost every question a similar score, even one about a pho recipe. I replaced it with a proper similarity score and chose the cutoff by testing real and unrelated questions. Clearly unrelated questions are now rejected. Questions on the same topic that the handbook doesn't answer, like tuition, still get through, so for those the system relies on the prompt.
 
-**Strict prompt.** The new prompt tells the model to use only the excerpts, to
-reply with a fixed sentence ("I couldn't find that in the documents.") when they
-do not contain the answer, to check that the excerpt matches what was asked
-(major versus minor, the right course code) and to cite sources. When the
-threshold triggers, the system returns the fixed sentence without calling the
-model.
+**A strict prompt.** The new prompt tells the model to use only the given excerpts, to reply with a fixed sentence ("I couldn't find that in the documents.") when they don't contain the answer, to check that the excerpt matches what was asked (major versus minor) and to cite its sources.
 
-**Chunking.** A retrieval-only sweep over chunk sizes measured whether the chunk
-containing each answer was retrieved: 21/23 at 1,000/200 characters, 23/23 at
-800/150, and 19–20/23 at 600 characters or less. Smaller chunks were worse
-because they separate course descriptions from the course code they describe.
+**Smaller chunks.** A quick retrieval-only test showed that chunks of 800 characters found the right text for every answerable question, the original 1,000 missed two, and chunks smaller than that did worse because they separate a course's description from its code.
 
-The end-to-end results (temperature 0, same 25 questions, hand-labelled;
-*Corr./Inc./Amb./Wrong* = correct, incomplete, ambiguous, incorrect; *OOS hall.* =
-out-of-scope questions answered with invented facts):
+I then re-ran the full evaluation for three experiments: **A** changes only the prompt, **B** adds smaller chunks, and **C** is B with the smallest model.
 
-| Run | Model | Prompt | Chunks | Corr. | Inc. | Amb. | Wrong | OOS hall. |
-|---|---|---|---|---|---|---|---|---|
-| Base | 1.5B | course | 1000/200 | 18 | 2 | 3 | 2 | 0/2 |
-| A | 1.5B | strict | 1000/200 | 18 | 3 | 1 | 3 | 0/2 |
-| B | 1.5B | strict | 800/150 | 17 | 2 | 3 | 3 | 0/2 |
-| Base | 0.5B | course | 1000/200 | 9 | 1 | 3 | 12 | 2/2 |
-| C | 0.5B | strict | 800/150 | 10 | 0 | 8 | 7 | 0/2 |
+| Run | Model | Change | Correct | Incorrect |
+|---|---|---|---|---|
+| Start | 1.5B | none | 18 | 2 |
+| A | 1.5B | strict prompt | 18 | 3 |
+| B | 1.5B | strict prompt, smaller chunks | 16 | 3 |
+| Start | 0.5B | none | 9 | 12 |
+| C | 0.5B | strict prompt, smaller chunks | 10 | 7 |
 
-For the 1.5B model the strict prompt did not change accuracy, but it changed the
-*kind* of errors. Answers no longer contained invented extras — the
-major-declaration answer dropped a false "and fulfil the minor requirements",
-and the advanced-course list lost its spurious "(16 credits)" labels — but some
-became too terse: the minor question was answered with "six courses" without
-naming them. For the 0.5B model the strict prompt removed both hallucinated
-out-of-scope answers and reduced incorrect answers from 12 to 7. It also exposed
-a new failure: in 9 of 25 answers the model printed the refusal sentence and then
-answered anyway, copying the *form* of the instruction rather than following it.
+For the middle model, the strict prompt did not change the number of correct answers but did change the kind of mistakes: it stopped adding made-up extras, though some answers became too short. For the smallest model, it stopped the invented answers and cut incorrect answers from 12 to 7. It also revealed a new problem: in more than a third of its answers, the model wrote the "couldn't find" sentence and then answered anyway.
 
-Better retrieval (run B) did not produce more correct answers. The 800-character
-chunks fixed both retrieval failures — the Core courses were now listed and the
-capstone alternative was answered correctly — but moving every chunk boundary
-changed the context of other questions. Most strikingly, the question about
-CS311's topics was answered with the description of CS313, a prerequisite course
-whose description is almost identical. With 25 questions, a difference of one
-answer is within noise.
+Smaller chunks (run B) fixed both retrieval failures but did not give more correct answers, because moving every chunk boundary changed the context for other questions. For example, the question about CS311's topics was answered with the description of CS313, a prerequisite whose description is almost identical. With only 25 questions, a difference of one or two answers says little.
 
-I adopted the threshold fix and the strict prompt as defaults, since they match
-the baseline's accuracy while never answering from general knowledge, and kept
-1,000/200 chunks. The experiments suggest that the remaining errors need
-structural changes — chunks that follow the document's headings, and tables
-converted to sentences — rather than further tuning of numbers.
+I adopted the relevance fix and the strict prompt as defaults, since they keep accuracy the same while never answering from general knowledge, and I kept the original chunk size. The remaining errors seem to need bigger changes, like cutting chunks along the handbook's headings and turning tables into sentences.
 
-# 5. Task 3 — Docker deployment
+# 5. Task 3: Docker deployment
 
-The deployment is defined in `docker/docker-compose.yml` and consists of three
-services:
+The setup in `docker/docker-compose.yml` has three parts. **ollama** runs the official image, with downloaded models kept in a volume so they survive rebuilds. **ollama-init** is a one-time job that waits until Ollama is ready, downloads the needed models and exits, so a fresh machine needs only `docker compose up`. **app** is a slim Python image that runs the web page as a non-root user and starts only after the models are ready.
 
-- **ollama** runs the official Ollama image (pinned to version 0.12.11, the same
-  as on the development machine). Downloaded models are stored in a named volume
-  so they survive container rebuilds.
-- **ollama-init** is a one-shot job that waits until Ollama is healthy, pulls the
-  embedding model and the default answer model, and exits. This makes the stack
-  self-contained: on a fresh machine `docker compose up` is the only step.
-- **app** is built from `docker/Dockerfile`: a `python:3.11-slim` image with only
-  the application's dependencies, running Streamlit on port 8501 as a non-root
-  user. It starts only after `ollama-init` has completed successfully, and
-  reaches Ollama by its service name on the internal network.
+The documents folder is shared from the host, so new PDFs can be added without rebuilding, and the database has its own volume. I removed several heavy libraries from the course's requirement list (PyTorch, sentence-transformers and RAGAS), since Ollama already creates the embeddings, which keeps the image small.
 
-The document folder is bind-mounted from the host, so new PDFs can be added
-without rebuilding the image, and the Chroma index is kept in a named volume. I
-reduced the image size by removing PyTorch, sentence-transformers and RAGAS from
-the course's requirement list, since embeddings are computed by Ollama; the
-resulting image is about 1 GB.
+My machine uses Podman, so I tested with `podman compose`. The files are standard Compose and work with both. The test confirmed the start-up order, that the database is built inside the container, and that questions are answered correctly through the command line and the web page.
 
-The development machine runs Podman rather than Docker, so the stack was tested
-with `podman compose`; the files are standard Compose and work with both. The
-test confirmed the start-up ordering (Ollama healthy → models pulled → app
-started), index construction inside the container, and a correct answer to a
-question asked through the containerised CLI and web interface.
+# 6. Task 4: Web interface
 
-# 6. Task 4 — Web interface
+The Streamlit page is a chat with the conversation above and a fixed question box below. Since answers are slow on a laptop, they are **streamed** word by word. Each answer has an expandable **sources panel** showing the cited pages, how closely each matched and the retrieved text, plus a warning if no relevant documents were found. This panel was the most useful feature during development, because it shows right away whether a wrong answer came from retrieval or from the model.
 
-The Streamlit interface presents a chat: questions in a fixed input box at the
-bottom, the conversation above it. Because CPU inference takes 30–60 seconds per
-answer, answers are **streamed** token by token, which makes the wait visibly
-productive. Every answer has an expandable **sources panel** listing the cited
-pages, their relevance scores and the retrieved text, and a warning is shown when
-the answer was produced without relevant documents. This panel turned out to be
-the most useful feature during development: it shows immediately whether a wrong
-answer came from retrieval or from the model.
+A sidebar lets the user choose the document set and model, change the main settings, upload new files, rebuild the database and clear the chat. The chat history is displayed, but each question is answered on its own. Handling follow-ups like "what does *it* cover?" needs the question to be rewritten before searching, which I list as future work.
 
-A sidebar lets the user choose the document collection and any installed Ollama
-model, adjust top-k, temperature, the relevance threshold and the prompt style,
-upload new PDF or text files and rebuild the index, and clear the conversation.
-On an empty conversation, example questions are offered as buttons.
+# 7. Lessons learned
 
-Conversation history is kept in Streamlit's session state and displayed, but
-each question is answered independently. Sending previous turns to the model
-would make prompts longer and slower, and resolving follow-ups such as "what
-does *it* cover?" properly requires rewriting the question before retrieval —
-listed below as future work.
+**Check retrieval in detail.** My first check counted a success whenever the right page was found, and it never failed. Looking at individual answers showed two of those successes had found the wrong chunk on that page. This changed the explanation of the hardest failures from "the model confused major and minor" to "the model was never shown the major's requirements".
 
-# 7. Observations and lessons learned
+**Automatic scores need a human check.** The key-fact score disagreed with my labels in both directions, rewarding a wrong conclusion built on a correct quote and penalizing correct answers with different wording. Labelling every answer by hand took time but gave most of the insight in this report.
 
-**Measure retrieval at the right granularity.** My first retrieval metric
-counted a hit when any chunk from the expected page was retrieved, and reported
-23/23. Checking individual answers showed that two of those "hits" had retrieved
-the wrong chunk of the right page. Adding a chunk-level metric changed the
-explanation of the hardest failures from "the model confused major and minor" to
-"the model was never shown the major's requirements".
+**Inherited defaults deserve a second look.** The starting relevance check used a formula that didn't suit the embeddings, so it never triggered in any baseline answer. Nobody would have noticed without looking at the numbers behind it.
 
-**Automatic scores need human review.** Key-fact coverage disagreed with my
-labels in both directions: it rewarded an answer that quoted a rule correctly and
-then drew a wrong conclusion, and penalised correct but differently worded
-answers. Labelling 75 answers by hand took time but produced most of the insight
-in this report.
+**Smaller chunks are not always better.** I expected small chunks to keep the major and minor apart, but testing showed the opposite: very small chunks cut course descriptions away from their codes.
 
-**Inherited defaults deserve scrutiny.** The baseline converts Chroma's squared
-L2 distance to a score with 1/(1+d) and falls back to general knowledge when the
-average score is below 0.3. Because Ollama's embeddings are unit-length, the
-distance is 2 − 2·cos θ and the score stays between roughly 0.48 and 0.7 — an
-off-topic question about a pho recipe scored 0.49. The fallback could never
-trigger: zero fallbacks occurred in 75 baseline answers.
-
-**Smaller is not always better for chunks.** I expected smaller chunks to
-separate the major and minor requirements; a retrieval-only sweep showed the
-opposite. Chunks of 400–600 characters separated course descriptions from their
-course codes, lowering chunk-level recall from 21/23 to 19–20/23, while 800
-characters with 150 overlap retrieved the right chunk for all 23 answerable
-questions.
-
-**Engineering for slow experiments.** The first full evaluation took about two
-hours on the CPU, wrote nothing until it finished and printed no progress. I
-changed the script to save every answer as it is produced and to resume
-interrupted runs, and added a retrieval-only mode that evaluates chunking choices
-in seconds.
+**Plan for slow experiments.** My first full evaluation took about two hours, saved nothing until it finished and showed no progress. I changed it to save each answer as it is produced, to resume interrupted runs, and added a quick retrieval-only mode.
 
 # 8. Limitations and future work
 
-- **Tables and images.** Flattened tables cause most remaining factual errors;
-  image-only pages are skipped. Table-aware extraction (e.g. pdfplumber),
-  converting table rows to sentences before indexing, and OCR would address this.
-- **Chunking.** Fixed-size chunking ignores the document's structure. Splitting
-  on headings, or prefixing each chunk with its section title, should be more
-  robust than tuning a character count on a 25-question test set.
-- **Out-of-scope detection.** Similarity thresholds separate clearly off-topic
-  questions but not questions about the same domain that the handbook does not
-  answer (tuition, scholarships); those depend on the model following the prompt.
-- **Follow-up questions.** Conversation history is not used for retrieval;
-  query rewriting would allow pronouns and ellipsis.
-- **Evaluation scale.** 25 questions labelled by one person is enough to find
-  failure patterns but not to measure small differences reliably. An LLM-as-judge
-  with a larger model could scale the labelling.
-- **Hardware.** On CPU the 3B model needs almost two minutes per answer; a GPU
-  would make larger, more accurate models practical.
+- **Tables and images.** Flattened tables cause most remaining factual errors. Reading tables properly, turning rows into sentences before indexing, and OCR for image pages would help.
+- **Chunking.** Cutting at fixed lengths ignores the document's structure. Splitting at headings should be more reliable than tuning a size on a small test set.
+- **Questions the handbook doesn't answer.** The relevance check catches clearly unrelated questions, but not on-topic ones like tuition, which depend on the model following the prompt.
+- **Follow-up questions.** The chat history is not used when searching.
+- **Size of the evaluation.** Twenty-five questions labelled by one person can reveal failure patterns but not small differences.
+- **Hardware.** On a processor, the largest model is too slow to be practical. A graphics card would allow larger, more accurate models.
 
 # 9. Conclusion
 
-The project produced a working local RAG system that answers questions about the
-Computer Science handbook with page-level citations, through a command line, a
-web interface and a reproducible container deployment. Systematic evaluation
-showed that a 1.5B-parameter model is a good trade-off on CPU, that most errors
-come from reading retrieved text rather than from retrieval itself, and that the
-remaining retrieval failures come from where chunks are cut. The evaluation also
-exposed problems in the baseline design — an ineffective relevance threshold and
-a prompt that invites hallucination — and the improvement experiments quantify
-the effect of fixing them.
+The project produced a working local RAG system that answers questions about the Computer Science handbook with page citations, through a command line, a web page and a reproducible container setup. The evaluation showed that the middle-sized model is the best trade-off on a laptop, that most errors come from the model misreading retrieved text, and that the remaining retrieval failures come from where the text is cut. It also exposed two problems in the starting design, an ineffective relevance check and a prompt that invites guessing, and the experiments showed what fixing them changes.
 
-# Appendix — Reproducing the results
+# Appendix: Reproducing the results
 
 ```bash
 cd source_code
@@ -402,7 +162,4 @@ uv run streamlit run app.py                 # web interface
 docker compose -f ../docker/docker-compose.yml up --build   # container deployment
 ```
 
-All results, including every answer, its label and the settings used, are in
-`source_code/eval/results/`. Note: the baseline run predates the 512-token
-generation cap and the new relevance score; re-running it today applies both,
-so the 0.5B repetition loop cannot recur and fallbacks may differ.
+All results, including every answer, its label and the settings used, are in `source_code/eval/results/`. Note: the baseline run was made before the answer length limit and the new relevance score were added. Re-running it today applies both, so the repetition problem cannot recur and the fallback behavior may differ.

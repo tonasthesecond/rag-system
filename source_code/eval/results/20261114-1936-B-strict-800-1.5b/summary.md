@@ -12,7 +12,7 @@
 
 | Model | correct | incomplete | ambiguous | incorrect |
 |---|---|---|---|---|
-| `qwen2.5:1.5b` | 17 | 2 | 3 | 3 |
+| `qwen2.5:1.5b` | 16 | 2 | 4 | 3 |
 
 ## Answers
 
@@ -347,7 +347,7 @@ CS students have successfully applied to graduate programs in the United States 
 
 **qwen2.5:1.5b** (retrieved pages [12, 4, 12, 1, 7], hit=True, chunk_hit=True, coverage=1.0, 49.7s)
 
-*Label: **correct** — Right; wrongly adds that summative assessment isn't mentioned (minor).*
+*Label: **ambiguous** — Right, but wrongly adds that summative assessment is not specified.*
 
 Students are assessed through continuous formative assessment methods such as discussion, in-class activities, and applied learning. Assessment examples include programming tests, quizzes, exams, group presentations, and capstone projects. The document does not specify summative assessments but mentions that teaching and assessment principles emphasize active and collaborative learning.
 

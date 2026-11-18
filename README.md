@@ -24,9 +24,9 @@ Question ───────────────────────�
 | 2 | CS handbook chatbot + evaluation | ✅ done (results in `source_code/eval/results/`) |
 | 3 | Docker deployment | ✅ done |
 | 4 | Web UI (Streamlit) | ✅ done |
-| 5 | Report | 📝 draft in `report/` (name, student ID and repo URL still to fill in) |
+| 5 | Report | ✅ done (`report/report.pdf`) |
 | 6 | Video demos | ⏳ (recording plan in `demo_video/SCRIPTS.md`) |
-| 7 | GitHub + README | 📝 README done; repository not yet published |
+| 7 | GitHub + README | ✅ done (published at github.com/tonasthesecond/rag-system) |
 
 ## Repository layout
 
@@ -174,7 +174,7 @@ docker compose -f docker/docker-compose.yml down            # stop (volumes kept
 | Run | Model | Prompt | Chunks | Correct / incompl. / ambig. / incorrect | Out-of-scope invented |
 |---|---|---|---|---|---|
 | A | 1.5b | strict | 1000/200 | 18 / 3 / 1 / 3 | 0/2 |
-| B | 1.5b | strict | 800/150 | 17 / 2 / 3 / 3 | 0/2 |
+| B | 1.5b | strict | 800/150 | 16 / 2 / 4 / 3 | 0/2 |
 | C | 0.5b | strict | 800/150 | 10 / 0 / 8 / 7 | 0/2 |
 
 The fixed relevance threshold (best-chunk cosine < 0.6) refuses 6/6 off-topic

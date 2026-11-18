@@ -1,4 +1,4 @@
-# Hand labels - experiment C: strict prompt, chunk 800/150, qwen2.5:0.5b. DRAFT - review.
+# Hand labels - experiment C: strict prompt, chunk 800/150, qwen2.5:0.5b.
 # Recurring 0.5b behaviour here: it starts with the "I couldn't find that in the
 # documents." sentence and then answers anyway (labelled ambiguous when the rest is right).
 req-major-credits: {qwen2.5:0.5b: [incorrect, "'Couldn't find' + the major-declaration rule; never says 56."]}
