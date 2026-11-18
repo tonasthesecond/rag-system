@@ -65,6 +65,8 @@ def get_llm(cfg: Settings) -> OllamaLLM:
         base_url=cfg.ollama_url,
         temperature=cfg.temperature,
         num_predict=cfg.max_tokens,
+        num_thread=cfg.num_thread or None,
+        keep_alive=cfg.keep_alive,
     )
 
 

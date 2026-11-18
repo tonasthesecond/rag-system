@@ -206,7 +206,7 @@ On Podman the compose provider is `podman-compose`; it was installed with
 | Error about embedding dimension mismatch | An index was built with a different embedding model under the same name (only possible with an old index layout). Delete `source_code/vector_store/` and let it rebuild. |
 | Real questions answered with "I couldn't find that in the documents." | The best chunk scored below `SCORE_THRESHOLD`; check with `--retrieval-only` and lower it, or the model judged the excerpts insufficient (look at the sources panel). |
 | UI port 8501 already in use | The Docker stack is running; stop it or use `--server.port 8502`. |
-| Very slow answers | Expected on CPU: 1.5b ≈ 45 s, 3b ≈ 110 s. Use a smaller model or lower top-k. First question after idle also loads the model (~5 s). |
+| Very slow answers | Expected on CPU: 1.5b ≈ 12 s with the defaults (top-k 3, 500-char chunks, 8 threads); 0.5b ≈ 5 s but answers worse. Time grows with prompt length, so raising top-k or chunk size slows it. Check `NUM_THREAD`: Ollama alone uses only the performance cores. |
 | Answer is a long repetitive wall of text | Shouldn't happen since `MAX_TOKENS=512`; if it does, lower `MAX_TOKENS` or use temperature > 0. |
 | `HEALTHCHECK is not supported for OCI image format` | Harmless Podman warning; build with `--format docker` to keep the healthcheck. |
 | `podman compose` says no provider found | `uv tool install podman-compose`. |

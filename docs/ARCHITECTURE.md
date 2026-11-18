@@ -92,7 +92,7 @@ is such a page.
 Pages are too long to retrieve as a unit (an answer is usually one sentence or
 list in a 3,000-character page), and embedding models summarise long text into a
 single vector poorly. So each page is split into **chunks** of at most
-`CHUNK_SIZE = 1000` characters, with `CHUNK_OVERLAP = 200` characters shared
+`CHUNK_SIZE = 500` characters, with `CHUNK_OVERLAP = 100` characters shared
 between neighbouring chunks so a sentence cut at a boundary still appears whole in
 one of them.
 
@@ -116,7 +116,7 @@ for the scores below.
 collection, and builds an **HNSW** index (a graph structure for fast approximate
 nearest-neighbour search). It persists to
 `vector_store/<folder>__<embedding model>__<chunk size>-<overlap>/`
-(e.g. `handbooks__nomic-embed-text__1000-200`), so different corpora and
+(e.g. `handbooks__nomic-embed-text__500-100`), so different corpora and
 different chunking experiments never share or overwrite an index.
 
 On the next run, `load_or_build` sees the folder exists and simply opens it — no
@@ -129,7 +129,7 @@ Code: `rag/pipeline.py`. `prepare()` does steps 1–4, `ask()` adds step 5.
 
 1. **Embed the question** with the same embedding model (it must be the same
    model, otherwise the vectors live in different spaces).
-2. **Retrieve** (`retrieve`): Chroma returns the `TOP_K = 5` chunks whose vectors
+2. **Retrieve** (`retrieve`): Chroma returns the `TOP_K = 3` chunks whose vectors
    are closest to the question's, with their **distance**. Chroma's default
    distance is *squared Euclidean (L2²)*.
 3. **Score**: each distance is converted to a **cosine similarity**. The vectors
@@ -201,12 +201,14 @@ variable (or `source_code/.env`) and falls back to a default:
 | `DATA_DIR` | `data/sample_txt` | folder to index (CLI default; UI picks from a dropdown) |
 | `VECTOR_STORE` | `vector_store` | parent folder for indexes; one subfolder per corpus + embedding model + chunking |
 | `COLLECTION` | `rag_documents` | Chroma collection name |
-| `CHUNK_SIZE` / `CHUNK_OVERLAP` | 1000 / 200 | chunking (a new value builds its own index) |
+| `CHUNK_SIZE` / `CHUNK_OVERLAP` | 500 / 100 | chunking (a new value builds its own index); small so prompts stay short and fast on CPU |
 | `EMBED_MODEL` | `nomic-embed-text` | embedding model (a new model builds its own index) |
 | `LLM_MODEL` | `qwen2.5:1.5b` | answer model (CLI, UI and Docker) |
 | `TEMPERATURE` | 0.2 | sampling randomness (evaluation forces 0) |
 | `MAX_TOKENS` | 512 | max answer length in tokens |
-| `TOP_K` | 5 | chunks retrieved per question |
+| `TOP_K` | 3 | chunks retrieved per question |
+| `NUM_THREAD` | 8 | LLM CPU threads (Ollama alone uses only the performance cores) |
+| `KEEP_ALIVE` | `1h` | how long Ollama keeps the answer model loaded |
 | `SCORE_THRESHOLD` | 0.6 | best-chunk cosine similarity below which the question counts as off-topic |
 | `PROMPT_STYLE` | `strict` | `strict` (documents only) or `baseline` (course prompt) |
 | `OLLAMA_URL` | `http://127.0.0.1:11434` | where Ollama is |

@@ -5,6 +5,7 @@ Run:  streamlit run app.py
 
 from __future__ import annotations
 
+from itertools import chain
 from pathlib import Path
 
 import httpx
@@ -120,42 +121,60 @@ def render_sources(msg: dict) -> None:
 st.header("Ask about the Computer Science Major Handbook" if corpus == "handbooks"
           else f"Ask about: {corpus}")
 
-if not st.session_state.messages:
+messages = st.session_state.messages
+
+
+def submit(text: str) -> None:
+    messages.append({"role": "user", "content": text})
+    st.rerun()
+
+
+# A question is "waiting" until its answer is stored. Any new input makes Streamlit
+# abort the running script, so the input stays disabled while an answer is being
+# generated (CPU generation takes 30-50 s), and a question whose run was interrupted
+# anyway (e.g. by a sidebar change) is simply answered on the next run.
+waiting = bool(messages) and messages[-1]["role"] == "user"
+question = st.chat_input(
+    "Answering…" if waiting else "Ask a question about the documents...", disabled=waiting
+)
+if question and not waiting:
+    submit(question)
+
+if not messages:
     st.markdown("Try one of these:")
     cols = st.columns(2)
     for i, example in enumerate(EXAMPLES):
         if cols[i % 2].button(example, use_container_width=True):
-            st.session_state.pending = example
-            st.rerun()
+            submit(example)
 
-for msg in st.session_state.messages:
+for msg in messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         if msg["role"] == "assistant":
             render_sources(msg)
 
-question = st.chat_input("Ask a question about the documents...") or st.session_state.pop(
-    "pending", None
-)
-if question:
-    st.session_state.messages.append({"role": "user", "content": question})
-    with st.chat_message("user"):
-        st.markdown(question)
-
+if waiting:
+    question = messages[-1]["content"]
+    result = {"sources": [], "top_score": 0.0, "used_fallback": False}
     with st.chat_message("assistant"):
-        with st.spinner("Searching documents..."):
-            result = prepare(question, db, cfg)
         try:
+            with st.spinner("Searching documents..."):
+                result = prepare(question, db, cfg)
             if result["answer"] is not None:  # strict mode refused without calling the LLM
                 answer = result["answer"]
                 st.markdown(answer)
             else:
-                answer = st.write_stream(get_llm(cfg).stream(result["prompt"]))
+                with st.spinner("Generating answer (can take ~30 s on CPU)..."):
+                    stream = get_llm(cfg).stream(result["prompt"])
+                    first = next(stream, "")
+                answer = st.write_stream(chain([first], stream))
         except (httpx.HTTPError, ollama.ResponseError) as exc:  # server down, model missing
             answer = f"⚠️ Could not reach the model `{cfg.llm_model}` at {cfg.ollama_url}: {exc}"
             st.error(answer)
-        msg = {"role": "assistant", "content": str(answer).strip(), "model": cfg.llm_model,
-               "prompt_style": cfg.prompt_style,
-               **{k: result[k] for k in ("sources", "top_score", "used_fallback")}}
-        render_sources(msg)
-    st.session_state.messages.append(msg)
+        except Exception as exc:  # never leave the question unanswered (input would stay locked)
+            answer = f"⚠️ Error while answering: {exc}"
+            st.error(answer)
+    messages.append({"role": "assistant", "content": str(answer).strip(),
+                     "model": cfg.llm_model, "prompt_style": cfg.prompt_style,
+                     **{k: result[k] for k in ("sources", "top_score", "used_fallback")}})
+    st.rerun()  # re-render with the sources expander and re-enable the input
