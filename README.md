@@ -25,7 +25,7 @@ Question ───────────────────────�
 | 3 | Docker deployment | ✅ done |
 | 4 | Web UI (Streamlit) | ✅ done |
 | 5 | Report | ✅ done (`report/report.pdf`) |
-| 6 | Video demos | ⏳ (recording plan in `demo_video/SCRIPTS.md`) |
+| 6 | Video demos | ✅ done (`demo_video/`, one per task) |
 | 7 | GitHub + README | ✅ done (published at github.com/tonasthesecond/rag-system) |
 
 ## Repository layout
